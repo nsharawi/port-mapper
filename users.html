@@ -55,27 +55,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-full{width:100%;justify-content:center}
 
-/* USER TABLE */
-.table-wrap{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;margin-bottom:16px}
-.table-header{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-.table-header h2{font-size:.93rem;color:var(--pu)}
-table{width:100%;border-collapse:collapse;font-size:.82rem}
-th{background:#6C3483;color:#fff;padding:8px 12px;text-align:left;font-size:.73rem;font-weight:600;cursor:pointer;user-select:none}
-th:hover{background:#7D3C98}
-td{padding:9px 12px;border-bottom:1px solid #F0F4F8;vertical-align:middle}
-tr:last-child td{border-bottom:none}
+/* LIST WRAP */
+.list-wrap{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;margin-bottom:16px}
+.list-header{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.list-header h2{font-size:.93rem;color:var(--pu)}
 
-/* USER ROW EXPAND */
-.user-row{cursor:pointer;transition:background .1s}
-.user-row:hover td{background:#F8F0FF}
-.user-row.expanded td{background:#F0E8FF;font-weight:600}
-.expand-panel{display:none;background:#FAFAFA;border-top:2px solid #E0C8FF}
-.expand-panel.open{display:table-row-group}
-.expand-cell{padding:12px 16px !important;font-weight:normal !important}
-.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:8px}
-.report-card{background:#fff;border:1px solid var(--bd);border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.report-card h4{font-size:.8rem;color:var(--pr);margin-bottom:2px}
-.report-card span{font-size:.7rem;color:#7f8c8d}
+/* USER LIST */
+.user-list{display:flex;flex-direction:column}
+.user-item{border-bottom:1px solid var(--bd)}
+.user-item:last-child{border-bottom:none}
+.user-header{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:background .12s;user-select:none}
+.user-header:hover{background:#F8F0FF}
+.user-header.open{background:#F0E8FF}
+.user-avatar{width:38px;height:38px;border-radius:50%;background:var(--pu);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;flex-shrink:0;text-transform:uppercase}
+.user-info-block{flex:1;min-width:0}
+.user-email{font-size:.85rem;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-sites{margin-top:4px;display:flex;flex-wrap:wrap;gap:3px}
+.user-meta{font-size:.7rem;color:#7f8c8d;margin-top:2px}
+.user-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.report-count{background:#EDE0FF;color:var(--pu);border-radius:10px;padding:3px 10px;font-size:.72rem;font-weight:700;white-space:nowrap}
+.chevron{font-size:.7rem;color:#7f8c8d;transition:transform .2s;margin-left:2px}
+.user-header.open .chevron{transform:rotate(180deg)}
+
+/* EXPANDED REPORT LIST */
+.user-expand{display:none;padding:0 16px 12px 66px;background:#FAFAFA;border-top:1px solid #E8D8FF}
+.user-expand.open{display:block}
+.expand-label{font-size:.72rem;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 6px}
+.report-list-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #EEEEEE}
+.report-list-item:last-child{border-bottom:none}
+.report-list-info{flex:1;min-width:0}
+.report-list-site{font-size:.82rem;font-weight:700;color:var(--pr);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report-list-meta{font-size:.7rem;color:#7f8c8d;margin-top:1px}
+
+/* BADGES / CHIPS */
 .badge{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700}
 .badge-ok{background:#D0F0E0;color:#1A7A40}
 .badge-warn{background:#FFF3D0;color:#A07000}
@@ -185,8 +197,8 @@ tr:last-child td{border-bottom:none}
       <button class="btn btn-gh btn-sm" onclick="renderUsers()">↻</button>
     </div>
 
-    <div class="table-wrap" id="userTableWrap">
-      <div class="table-header">
+    <div class="list-wrap" id="userTableWrap">
+      <div class="list-header">
         <h2>Users with Report Access</h2>
         <button class="btn btn-gh btn-sm" onclick="exportAccessCSV()">📥 Export CSV</button>
       </div>
@@ -291,12 +303,12 @@ function updateStats(){
 }
 
 // ════════════════════════════════════════════════════
-// RENDER USERS TABLE
+// RENDER USERS LIST
 // ════════════════════════════════════════════════════
 function renderUsers(){
   const q=(document.getElementById('userSearch').value||'').toLowerCase();
   const sf=(document.getElementById('siteFilter').value||'');
-  let users=Object.values(userMap).filter(u=>{
+  const users=Object.values(userMap).filter(u=>{
     const matchQ=!q||u.email.includes(q)||[...u.sites].some(s=>s.toLowerCase().includes(q));
     const matchSite=!sf||u.sites.has(sf);
     return matchQ&&matchSite;
@@ -308,66 +320,64 @@ function renderUsers(){
     return;
   }
 
-  const rows=users.map((u,i)=>{
-    const siteTags=[...u.sites].map(s=>`<span class="tag">${esc(s)}</span>`).join(' ');
+  const items=users.map((u,i)=>{
+    const initial=u.email[0].toUpperCase();
+    const siteTags=[...u.sites].sort().map(s=>`<span class="tag">${esc(s)}</span>`).join('');
     const reportCount=u.reports.length;
-    return `
-      <tbody>
-        <tr class="user-row" onclick="toggleUser('u${i}',this)">
-          <td><span class="email-chip">${esc(u.email)}</span></td>
-          <td>${siteTags||'<span style="color:#aaa">—</span>'}</td>
-          <td><strong>${reportCount}</strong></td>
-          <td>
-            <button class="btn btn-dn btn-sm" onclick="event.stopPropagation();revokeAllAccess('${esc(u.email)}')">✕ Revoke All</button>
-          </td>
-        </tr>
-        <tr class="expand-panel" id="u${i}">
-          <td class="expand-cell" colspan="4">
-            <div style="font-size:.78rem;font-weight:700;color:var(--pu);margin-bottom:8px">
-              Reports accessible to ${esc(u.email)}
+
+    // Individual report rows inside expand
+    const reportRows=u.reports
+      .slice().sort((a,b)=>(a.site||'').localeCompare(b.site||''))
+      .map(r=>{
+        const allDone=(r.idfs||[]).every(x=>x.complete);
+        return `<div class="report-list-item">
+          <div class="report-list-info">
+            <div class="report-list-site">${esc(r.site||'—')}</div>
+            <div class="report-list-meta">Ticket: ${esc(r.ticket||'—')} &nbsp;·&nbsp; ${r.date||'—'} &nbsp;·&nbsp;
+              <span class="badge ${allDone?'badge-ok':'badge-warn'}">${allDone?'Complete':'In Progress'}</span>
             </div>
-            <div class="report-grid">
-              ${u.reports.map(r=>{
-                const allDone=(r.idfs||[]).every(x=>x.complete);
-                return `<div class="report-card">
-                  <div>
-                    <h4>${esc(r.site||'—')}</h4>
-                    <span>Ticket: ${esc(r.ticket||'—')} · ${r.date||'—'}</span><br>
-                    <span class="badge ${allDone?'badge-ok':'badge-warn'}" style="margin-top:3px">${allDone?'Complete':'In Progress'}</span>
-                  </div>
-                  <button class="btn btn-dn btn-sm" style="flex-shrink:0" onclick="revokeOneAccess('${esc(u.email)}','${r.id}')">✕</button>
-                </div>`;
-              }).join('')}
-            </div>
-          </td>
-        </tr>
-      </tbody>`;
+          </div>
+          <button class="btn btn-dn btn-sm" style="flex-shrink:0"
+            onclick="revokeOneAccess('${esc(u.email)}','${r.id}')">✕ Remove</button>
+        </div>`;
+      }).join('');
+
+    return `<div class="user-item">
+      <div class="user-header" id="uh${i}" onclick="toggleUser(${i})">
+        <div class="user-avatar">${initial}</div>
+        <div class="user-info-block">
+          <div class="user-email" title="${esc(u.email)}">${esc(u.email)}</div>
+          <div class="user-sites">${siteTags||'<span style="color:#aaa;font-size:.7rem">No site</span>'}</div>
+        </div>
+        <div class="user-actions">
+          <span class="report-count">${reportCount} report${reportCount!==1?'s':''}</span>
+          <button class="btn btn-dn btn-sm"
+            onclick="event.stopPropagation();revokeAllAccess('${esc(u.email)}')">✕ Revoke All</button>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="user-expand" id="ue${i}">
+        <div class="expand-label">Reports accessible to this user</div>
+        ${reportRows}
+      </div>
+    </div>`;
   }).join('');
 
-  document.getElementById('userTableArea').innerHTML=`
-    <div style="overflow-x:auto">
-      <table>
-        <thead><tr>
-          <th style="cursor:default">Email</th>
-          <th style="cursor:default">Sites</th>
-          <th style="cursor:default;width:90px">Reports</th>
-          <th style="cursor:default;width:120px">Actions</th>
-        </tr></thead>
-        ${rows}
-      </table>
-    </div>`;
+  document.getElementById('userTableArea').innerHTML=
+    `<div class="user-list">${items}</div>`;
 }
 
-function toggleUser(id,row){
-  const panel=document.getElementById(id);
-  if(!panel) return;
-  const open=panel.classList.contains('open');
-  // Close all
-  document.querySelectorAll('.expand-panel.open').forEach(p=>{
-    p.classList.remove('open');
-    p.previousElementSibling?.classList.remove('expanded');
+function toggleUser(i){
+  const header=document.getElementById('uh'+i);
+  const expand=document.getElementById('ue'+i);
+  if(!header||!expand) return;
+  const opening=!expand.classList.contains('open');
+  // Collapse all
+  document.querySelectorAll('.user-expand.open').forEach(el=>{
+    el.classList.remove('open');
+    document.getElementById('uh'+el.id.slice(2))?.classList.remove('open');
   });
-  if(!open){ panel.classList.add('open'); row.classList.add('expanded'); }
+  if(opening){ expand.classList.add('open'); header.classList.add('open'); }
 }
 
 // ════════════════════════════════════════════════════
