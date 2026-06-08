@@ -73,6 +73,11 @@ td{padding:5px 9px;border-bottom:1px solid #F0F4F8}
       onclick="cSignIn()">
       🔐 Sign In
     </button>
+    <div style="display:flex;align-items:center;gap:8px;color:#bbb;font-size:.72rem;margin:10px 0"><div style="flex:1;height:1px;background:#eee"></div>or<div style="flex:1;height:1px;background:#eee"></div></div>
+    <button class="btn-google" onclick="cMicrosoftSignIn()" style="width:100%;justify-content:center;margin-bottom:10px">
+      <svg width="15" height="15" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
     <div>
       <button onclick="forgotPassword()"
         style="background:none;border:none;color:#7f8c8d;font-size:.75rem;cursor:pointer;text-decoration:underline">
@@ -210,6 +215,18 @@ async function forgotPassword(){
   }
 }
 
+function cMicrosoftSignIn(){
+  const errEl=document.getElementById('loginErr');
+  errEl.style.display='none';
+  const provider=new firebase.auth.OAuthProvider('microsoft.com');
+  auth.signInWithPopup(provider).catch(e=>{
+    if(e.code!=='auth/popup-closed-by-user'){
+      errEl.style.color='#E74C3C'; errEl.style.background='#FFF3F3';
+      errEl.textContent='Microsoft sign-in error: '+e.message;
+      errEl.style.display='block';
+    }
+  });
+}
 function cSignOut(){ auth.signOut().then(()=>location.reload()); }
 
 async function loadMyReports(email){
