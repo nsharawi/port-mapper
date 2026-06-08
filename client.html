@@ -145,7 +145,13 @@ async function showReport(id){
   document.getElementById('detail').style.display='block';
   // Header
   document.getElementById('detailHeader').innerHTML=`
-    <div class="ctitle">${r.site||'—'}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div class="ctitle" style="margin:0">${r.site||'—'}</div>
+      ${r.excelUrl?`<a href="${r.excelUrl}" target="_blank" download
+          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#1D6F42;color:#fff;border-radius:7px;font-size:.78rem;font-weight:700;text-decoration:none">
+          📊 Download Excel Report
+        </a>`:''}
+    </div>
     <div style="display:grid;gap:5px;grid-template-columns:1fr 1fr;font-size:.82rem">
       <div><strong>Ticket:</strong> ${r.ticket||'—'}</div>
       <div><strong>Date:</strong> ${r.date||'—'}</div>
