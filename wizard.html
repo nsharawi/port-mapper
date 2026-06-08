@@ -1773,7 +1773,7 @@ async function saveCloud(silent=false){
 
   // Count how many upload tasks there will be: sitemap + overview + patchpanel per IDF + 1 Firestore write
   let totalSteps=1; // Firestore write always counts
-  if(state.siteMapData) totalSteps++;
+  if(state.siteMapData) totalSteps+=2; // render step + upload step
   state.idfs.forEach(idf=>{
     if(idf.photos.overview)   totalSteps++;
     if(idf.photos.patchpanel) totalSteps++;
@@ -1833,9 +1833,13 @@ async function saveCloud(silent=false){
     let mapUrl=null;
 
     if(state.siteMapData){
+      advance('Rendering site map with pins…');
+      // exportSiteMap draws pins + legend onto the image; fall back to raw if it fails
+      const renderedMap=await exportSiteMap();
+      const mapToUpload=renderedMap||state.siteMapData;
       advance('Uploading site map…');
       const sRef=fbStorage.ref(`reports/${currentUser.uid}/${ref.id}/sitemap.jpg`);
-      await sRef.putString(state.siteMapData,'data_url',{contentType:'image/jpeg'});
+      await sRef.putString(mapToUpload,'data_url',{contentType:'image/jpeg'});
       mapUrl=await sRef.getDownloadURL();
     }
 
