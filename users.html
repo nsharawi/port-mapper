@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PALTECH — User Access Management</title>
+<title>PALTECH — User Management</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
-:root{--pr:#005A9C;--ac:#27AE60;--dn:#E74C3C;--pu:#8E44AD;--tx:#2C3E50;--bg:#E9ECEF;--bd:#D1D9E0}
+:root{--pr:#005A9C;--ac:#27AE60;--dn:#E74C3C;--pu:#8E44AD;--or:#E67E22;--tx:#2C3E50;--bg:#E9ECEF;--bd:#D1D9E0}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx)}
 
@@ -32,7 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* LAYOUT */
 .layout{display:grid;gap:0}
-@media(min-width:900px){.layout{grid-template-columns:280px 1fr}}
+@media(min-width:900px){.layout{grid-template-columns:300px 1fr}}
 .sidebar{background:#fff;border-right:1px solid var(--bd);min-height:calc(100vh - 44px);padding:16px}
 .main{padding:18px;min-height:calc(100vh - 44px)}
 
@@ -43,14 +43,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .field-group{margin-bottom:10px}
 .inp{width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:inherit}
 .inp:focus{border-color:var(--pu);outline:none;background:#fff}
-.stats-row{display:flex;justify-content:space-between;padding:3px 0;font-size:.78rem;color:#596A7A;border-bottom:1px solid #f0f0f0}
+textarea.inp{resize:vertical}
+.stats-row{display:flex;justify-content:space-between;padding:4px 0;font-size:.78rem;color:#596A7A;border-bottom:1px solid #f0f0f0}
 .stats-row:last-child{border:none}
 .stats-row strong{color:var(--pu)}
 
 /* BUTTONS */
 .btn{padding:7px 14px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-family:inherit}
-.btn-pu{background:var(--pu);color:#fff} .btn-ac{background:var(--ac);color:#fff}
-.btn-dn{background:var(--dn);color:#fff} .btn-gh{background:none;color:#596A7A;border:1px solid var(--bd)}
+.btn-pu{background:var(--pu);color:#fff}.btn-ac{background:var(--ac);color:#fff}
+.btn-dn{background:var(--dn);color:#fff}.btn-gh{background:none;color:#596A7A;border:1px solid var(--bd)}
+.btn-or{background:var(--or);color:#fff}
 .btn-sm{padding:5px 10px;font-size:11px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-full{width:100%;justify-content:center}
@@ -67,31 +69,66 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .user-header{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:background .12s;user-select:none}
 .user-header:hover{background:#F8F0FF}
 .user-header.open{background:#F0E8FF}
-.user-avatar{width:38px;height:38px;border-radius:50%;background:var(--pu);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;flex-shrink:0;text-transform:uppercase}
+.user-avatar{width:40px;height:40px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;flex-shrink:0;text-transform:uppercase}
+.av-auth{background:var(--ac)}
+.av-inactive{background:#95a5a6}
+.av-plain{background:var(--pu)}
 .user-info-block{flex:1;min-width:0}
-.user-email{font-size:.85rem;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.user-sites{margin-top:4px;display:flex;flex-wrap:wrap;gap:3px}
-.user-meta{font-size:.7rem;color:#7f8c8d;margin-top:2px}
-.user-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.user-display-name{font-size:.9rem;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-email-line{font-size:.76rem;color:#7f8c8d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-company{font-size:.72rem;color:#8a7aad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-sites{margin-top:3px;display:flex;flex-wrap:wrap;gap:3px}
+.user-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .report-count{background:#EDE0FF;color:var(--pu);border-radius:10px;padding:3px 10px;font-size:.72rem;font-weight:700;white-space:nowrap}
 .chevron{font-size:.7rem;color:#7f8c8d;transition:transform .2s;margin-left:2px}
 .user-header.open .chevron{transform:rotate(180deg)}
 
-/* EXPANDED REPORT LIST */
-.user-expand{display:none;padding:0 16px 12px 66px;background:#FAFAFA;border-top:1px solid #E8D8FF}
+/* EXPANDED AREA */
+.user-expand{display:none;background:#FAFAFA;border-top:1px solid #E8D8FF}
 .user-expand.open{display:block}
-.expand-label{font-size:.72rem;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 6px}
+
+/* PROFILE EDIT SECTION */
+.profile-section{padding:14px 16px 14px 68px;border-bottom:1px dashed #DDD0F0}
+.profile-section h4{font-size:.72rem;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+@media(max-width:600px){.edit-grid{grid-template-columns:1fr}}
+.edit-label{font-size:.65rem;font-weight:700;color:#7f8c8d;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px}
+.edit-inp{width:100%;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:inherit}
+.edit-inp:focus{border-color:var(--pu);outline:none}
+.edit-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.profile-meta{font-size:.65rem;color:#aaa;margin-top:10px;padding-top:6px;border-top:1px solid #EEE}
+
+/* TOGGLE */
+.toggle-wrap{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#596A7A}
+.toggle{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:20px;transition:.3s}
+.toggle-slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked + .toggle-slider{background:var(--ac)}
+.toggle input:checked + .toggle-slider:before{transform:translateX(16px)}
+
+/* ACCESS SECTION */
+.access-section{padding:12px 16px 14px 68px}
+.expand-label{font-size:.72rem;font-weight:700;color:var(--pu);text-transform:uppercase;letter-spacing:.4px;padding-bottom:6px}
 .report-list-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #EEEEEE}
 .report-list-item:last-child{border-bottom:none}
 .report-list-info{flex:1;min-width:0}
 .report-list-site{font-size:.82rem;font-weight:700;color:var(--pr);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .report-list-meta{font-size:.7rem;color:#7f8c8d;margin-top:1px}
+.access-footer{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #E8D8FF}
 
-/* BADGES / CHIPS */
+/* BADGES */
 .badge{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700}
 .badge-ok{background:#D0F0E0;color:#1A7A40}
 .badge-warn{background:#FFF3D0;color:#A07000}
-.email-chip{display:inline-block;background:#EDE0FF;color:var(--pu);border-radius:10px;padding:2px 9px;font-size:.72rem;font-weight:600}
+.badge-dn{background:#FFD8D8;color:#A00000}
+.badge-auth{background:#D4EAF7;color:#005A9C}
+.badge-inactive{background:#EEEEEE;color:#666}
+
+/* PASSWORD FIELD */
+.pass-wrap{position:relative}
+.pass-wrap .eye-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:13px;padding:0;opacity:.5;line-height:1}
+.pass-wrap .eye-btn:hover{opacity:1}
 
 /* MISC */
 .spinner{display:block;width:24px;height:24px;border:3px solid #ddd;border-top-color:var(--pu);border-radius:50%;animation:spin .7s linear infinite;margin:30px auto}
@@ -112,8 +149,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="loginScreen">
   <div class="login-box">
     <div style="font-size:2.2rem">👥</div>
-    <h2>User Access Management</h2>
-    <p>Admin sign-in required to manage user permissions.</p>
+    <h2>User Management</h2>
+    <p>Admin sign-in required to manage users and permissions.</p>
     <button class="btn-google" onclick="adminSignIn()">
       <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Sign in with Google
@@ -122,8 +159,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- TOP BAR -->
 <div class="top-bar">
-  <h1>👥 User Access Management</h1>
+  <h1>👥 User Management</h1>
   <div class="top-nav">
     <a class="nav-link" href="admin.html">📂 Reports</a>
     <a class="nav-link here" href="users.html">👥 Users</a>
@@ -140,7 +178,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- SIDEBAR -->
   <div class="sidebar">
 
-    <!-- Grant Site Access -->
+    <!-- ── CREATE NEW USER ── -->
+    <div class="side-card" style="border-color:#27AE60;border-width:2px">
+      <h3 style="color:#1A7A40">➕ Create New User</h3>
+      <div class="field-group">
+        <div class="side-label">Full Name *</div>
+        <input class="inp" id="newName" type="text" placeholder="Jane Smith">
+      </div>
+      <div class="field-group">
+        <div class="side-label">Email Address *</div>
+        <input class="inp" id="newEmail" type="email" placeholder="client@example.com">
+      </div>
+      <div class="field-group">
+        <div class="side-label">Password *</div>
+        <div class="pass-wrap">
+          <input class="inp" id="newPass" type="password" placeholder="Min. 6 characters" style="padding-right:34px">
+          <button type="button" class="eye-btn" onclick="togglePass('newPass',this)">👁</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="side-label">Company / Organization</div>
+        <input class="inp" id="newCompany" type="text" placeholder="Optional">
+      </div>
+      <div class="field-group">
+        <div class="side-label">Admin Notes</div>
+        <textarea class="inp" id="newNotes" rows="2" placeholder="Optional notes about this user"></textarea>
+      </div>
+      <button id="createUserBtn" class="btn btn-ac btn-full" onclick="createUser()">➕ Create User Account</button>
+      <div id="createErr" style="font-size:.72rem;margin-top:7px;display:none;line-height:1.45;padding:6px 8px;border-radius:5px;background:#FFF3F3;color:#C0392B"></div>
+    </div>
+
+    <!-- ── GRANT SITE ACCESS ── -->
     <div class="side-card">
       <h3>🏢 Grant Site Access</h3>
       <div class="field-group">
@@ -157,7 +225,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="btn btn-ac btn-full btn-sm" onclick="grantSiteAccess()">✓ Grant Access to All Reports</button>
     </div>
 
-    <!-- Grant to Single Report -->
+    <!-- ── GRANT SINGLE REPORT ── -->
     <div class="side-card">
       <h3>📄 Grant Report Access</h3>
       <div class="field-group">
@@ -173,10 +241,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="btn btn-pu btn-full btn-sm" onclick="grantSingleAccess()">+ Grant Access</button>
     </div>
 
-    <!-- Stats -->
+    <!-- ── STATS ── -->
     <div class="side-card">
       <h3>📊 Stats</h3>
-      <div class="stats-row">Users with access <strong id="statUsers">0</strong></div>
+      <div class="stats-row">Auth Users (with password) <strong id="statAuthUsers">0</strong></div>
+      <div class="stats-row">Active accounts <strong id="statActiveUsers">0</strong></div>
+      <div class="stats-row">Total users w/ access <strong id="statUsers">0</strong></div>
       <div class="stats-row">Total reports <strong id="statReports">0</strong></div>
       <div class="stats-row">Sites <strong id="statSites">0</strong></div>
     </div>
@@ -186,20 +256,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <!-- MAIN -->
   <div class="main">
-    <!-- Filter -->
+    <!-- Filter bar -->
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <div class="search-wrap" style="flex:1;min-width:180px">
-        <input id="userSearch" placeholder="Filter by email or site…" oninput="renderUsers()">
+        <input id="userSearch" placeholder="Search by name, email, or site…" oninput="renderUsers()">
       </div>
-      <select class="inp" id="siteFilter" style="width:auto;min-width:160px" onchange="renderUsers()">
+      <select class="inp" id="siteFilter" style="width:auto;min-width:150px" onchange="renderUsers()">
         <option value="">All sites</option>
+      </select>
+      <select class="inp" id="filterType" style="width:auto;min-width:140px" onchange="renderUsers()">
+        <option value="">All users</option>
+        <option value="auth">With account (🔐)</option>
+        <option value="noaccount">No account yet</option>
+        <option value="inactive">Inactive accounts</option>
       </select>
       <button class="btn btn-gh btn-sm" onclick="renderUsers()">↻</button>
     </div>
 
     <div class="list-wrap" id="userTableWrap">
       <div class="list-header">
-        <h2>Users with Report Access</h2>
+        <h2>All Users</h2>
         <button class="btn btn-gh btn-sm" onclick="exportAccessCSV()">📥 Export CSV</button>
       </div>
       <div id="userTableArea"><div class="spinner"></div></div>
@@ -220,119 +296,324 @@ const FIREBASE_CONFIG = {
   appId: "1:30294256994:web:a50b5f971d1a1a79c7903b"
 };
 firebase.initializeApp(FIREBASE_CONFIG);
-const auth=firebase.auth(), db=firebase.firestore();
+const auth = firebase.auth(), db = firebase.firestore();
+let currentUser = null;
 
-let allReports=[], userMap={}, siteNames=[];
+// ── Data ────────────────────────────────────────────
+let allReports = [], allClients = [], allAuthUsers = [];
+let userMap = {}, emailToAuthUser = {}, siteNames = [];
 
 // ════════════════════════════════════════════════════
 // AUTH
 // ════════════════════════════════════════════════════
-auth.onAuthStateChanged(async user=>{
-  if(!user){ document.getElementById('loginScreen').style.display='flex'; return; }
-  const adminDoc=await db.collection('admins').doc(user.uid).get();
-  if(!adminDoc.exists){
-    document.getElementById('accessErr').style.display='block';
+auth.onAuthStateChanged(async user => {
+  if (!user) { document.getElementById('loginScreen').style.display = 'flex'; return; }
+  const adminDoc = await db.collection('admins').doc(user.uid).get();
+  if (!adminDoc.exists) {
+    document.getElementById('accessErr').style.display = 'block';
     auth.signOut(); return;
   }
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('adminEmail').textContent=user.displayName||user.email;
+  currentUser = user;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminEmail').textContent = user.displayName || user.email;
   loadAll();
 });
-function adminSignIn(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-function adminSignOut(){ if(confirm('Sign out?')) auth.signOut().then(()=>location.reload()); }
+function adminSignIn() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+function adminSignOut() { if (confirm('Sign out?')) auth.signOut().then(() => location.reload()); }
 
 // ════════════════════════════════════════════════════
-// LOAD ALL REPORTS
+// CREATE NEW USER  (secondary Firebase app — admin stays signed in)
 // ════════════════════════════════════════════════════
-async function loadAll(){
-  document.getElementById('userTableArea').innerHTML='<div class="spinner"></div>';
-  try{
-    const snap=await db.collection('reports').orderBy('savedAt','desc').limit(1000).get();
-    allReports=snap.docs.map(d=>({id:d.id,...d.data(),
-      savedAtDate:d.data().savedAt?.toDate?.()||new Date(0)}));
+async function createUser() {
+  const name    = document.getElementById('newName').value.trim();
+  const email   = document.getElementById('newEmail').value.trim().toLowerCase();
+  const pass    = document.getElementById('newPass').value;
+  const company = document.getElementById('newCompany').value.trim();
+  const notes   = document.getElementById('newNotes').value.trim();
+
+  if (!name)                    { showCreateErr('Full name is required.'); return; }
+  if (!email || !email.includes('@')) { showCreateErr('A valid email address is required.'); return; }
+  if (!pass || pass.length < 6) { showCreateErr('Password must be at least 6 characters.'); return; }
+
+  const btn = document.getElementById('createUserBtn');
+  btn.disabled = true; btn.textContent = '⏳ Creating account…';
+  showCreateErr('');
+
+  let secondaryApp = null;
+  try {
+    // Spin up a secondary app instance so admin auth state is untouched
+    secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'userCreate_' + Date.now());
+    const secAuth = secondaryApp.auth();
+
+    const cred = await secAuth.createUserWithEmailAndPassword(email, pass);
+    const uid  = cred.user.uid;
+    await cred.user.updateProfile({ displayName: name });
+    await secAuth.signOut(); // sign out new user from secondary app
+
+    // Write profile to Firestore users collection (keyed by UID)
+    await db.collection('users').doc(uid).set({
+      uid,
+      email,
+      displayName : name,
+      company     : company || '',
+      notes       : notes   || '',
+      role        : 'client',
+      active      : true,
+      createdAt   : firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy   : currentUser.email
+    });
+
+    // Also write to clients collection for backward compatibility
+    await db.collection('clients').doc(email).set({
+      email,
+      createdAt   : firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy   : currentUser.email,
+      active      : true
+    }, { merge: true });
+
+    // Clear form
+    ['newName','newEmail','newPass','newCompany','newNotes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    toast(`✅ Account created for ${name} (${email})`);
+    await loadAll();
+  } catch(e) {
+    if (e.code === 'auth/email-already-in-use')
+      showCreateErr('This email is already registered. Use a different address, or send them a password reset email.');
+    else if (e.code === 'auth/invalid-email')
+      showCreateErr('Invalid email address format.');
+    else if (e.code === 'auth/weak-password')
+      showCreateErr('Password is too weak. Use at least 6 characters with a mix of letters and numbers.');
+    else
+      showCreateErr('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '➕ Create User Account';
+    if (secondaryApp) await secondaryApp.delete().catch(() => {});
+  }
+}
+
+function showCreateErr(msg) {
+  const el = document.getElementById('createErr');
+  if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function togglePass(id, btn) {
+  const inp = document.getElementById(id);
+  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '🔒'; }
+  else                         { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+// ════════════════════════════════════════════════════
+// LOAD ALL DATA
+// ════════════════════════════════════════════════════
+async function loadAll() {
+  document.getElementById('userTableArea').innerHTML = '<div class="spinner"></div>';
+  try {
+    const [reportsSnap, clientsSnap, authUsersSnap] = await Promise.all([
+      db.collection('reports').orderBy('savedAt','desc').limit(1000).get(),
+      db.collection('clients').get(),
+      db.collection('users').get()
+    ]);
+
+    allReports   = reportsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => !r.deleted);
+    allClients   = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allAuthUsers = authUsersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // email → auth user profile
+    emailToAuthUser = {};
+    allAuthUsers.forEach(u => {
+      if (u.email) emailToAuthUser[u.email.toLowerCase()] = u;
+    });
+
     buildUserMap();
     populateSiteDropdowns();
     updateStats();
     renderUsers();
-  }catch(e){
-    document.getElementById('userTableArea').innerHTML=
-      `<div class="empty">Error loading reports: ${e.message}</div>`;
+  } catch(e) {
+    document.getElementById('userTableArea').innerHTML =
+      `<div class="empty">⚠ Error loading data: ${e.message}</div>`;
   }
 }
 
-function buildUserMap(){
-  userMap={};
-  allReports.forEach(r=>{
-    (r.allowedEmails||[]).forEach(email=>{
-      if(!email) return;
-      const key=email.toLowerCase();
-      if(!userMap[key]) userMap[key]={email:key,reports:[],sites:new Set()};
+// ════════════════════════════════════════════════════
+// BUILD USER MAP  (email → { reports, sites, registered })
+// ════════════════════════════════════════════════════
+function buildUserMap() {
+  userMap = {};
+
+  // 1. Seed from persistent clients collection
+  allClients.forEach(c => {
+    const key = (c.email || '').toLowerCase();
+    if (!key) return;
+    if (!userMap[key]) userMap[key] = { email: key, registered: true, createdAt: c.createdAt, createdBy: c.createdBy || '', reports: [], sites: new Set() };
+    else userMap[key].registered = true;
+  });
+
+  // 2. Seed auth users — guaranteed persistent entries
+  allAuthUsers.forEach(u => {
+    const key = (u.email || '').toLowerCase();
+    if (!key) return;
+    if (!userMap[key]) userMap[key] = { email: key, registered: true, reports: [], sites: new Set() };
+    else userMap[key].registered = true;
+  });
+
+  // 3. Layer in report access
+  allReports.forEach(r => {
+    (r.allowedEmails || []).forEach(email => {
+      if (!email) return;
+      const key = email.toLowerCase();
+      if (!userMap[key]) userMap[key] = { email: key, registered: false, reports: [], sites: new Set() };
       userMap[key].reports.push(r);
-      if(r.site) userMap[key].sites.add(r.site);
+      if (r.site) userMap[key].sites.add(r.site);
     });
   });
 }
 
-function populateSiteDropdowns(){
-  siteNames=[...new Set(allReports.map(r=>r.site||'').filter(Boolean))].sort();
-  const opts=siteNames.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
-  document.getElementById('grantSite').innerHTML='<option value="">— Select a site —</option>'+opts;
-  document.getElementById('siteFilter').innerHTML='<option value="">All sites</option>'+opts;
-  // Report dropdown
-  const repOpts=allReports.map(r=>{
-    const label=`${r.site||'—'} — ${r.ticket||'No ticket'} (${r.date||'—'})`;
+// ════════════════════════════════════════════════════
+// DROPDOWNS
+// ════════════════════════════════════════════════════
+function populateSiteDropdowns() {
+  siteNames = [...new Set(allReports.map(r => r.site || '').filter(Boolean))].sort();
+  const opts = siteNames.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  document.getElementById('grantSite').innerHTML      = '<option value="">— Select a site —</option>' + opts;
+  document.getElementById('siteFilter').innerHTML     = '<option value="">All sites</option>' + opts;
+  const repOpts = allReports.map(r => {
+    const label = `${r.site || '—'} — ${r.ticket || 'No ticket'} (${r.date || '—'})`;
     return `<option value="${r.id}">${esc(label)}</option>`;
   }).join('');
-  document.getElementById('grantSingleReport').innerHTML='<option value="">— Select a report —</option>'+repOpts;
-  // Site count hint
-  document.getElementById('grantSite').addEventListener('change',updateSiteGrantCount);
+  document.getElementById('grantSingleReport').innerHTML = '<option value="">— Select a report —</option>' + repOpts;
+  document.getElementById('grantSite').addEventListener('change', updateSiteGrantCount);
 }
 
-function updateSiteGrantCount(){
-  const site=document.getElementById('grantSite').value;
-  const count=site?allReports.filter(r=>(r.site||'')==site).length:0;
-  document.getElementById('grantSiteCount').textContent=
-    site?`${count} report${count!==1?'s':''} for this site`:'';
-}
-
-function updateStats(){
-  const userCount=Object.keys(userMap).length;
-  document.getElementById('statUsers').textContent=userCount;
-  document.getElementById('statReports').textContent=allReports.length;
-  document.getElementById('statSites').textContent=siteNames.length;
+function updateSiteGrantCount() {
+  const site  = document.getElementById('grantSite').value;
+  const count = site ? allReports.filter(r => (r.site || '') === site).length : 0;
+  document.getElementById('grantSiteCount').textContent = site ? `${count} report${count !== 1 ? 's' : ''} for this site` : '';
 }
 
 // ════════════════════════════════════════════════════
-// RENDER USERS LIST
+// STATS
 // ════════════════════════════════════════════════════
-function renderUsers(){
-  const q=(document.getElementById('userSearch').value||'').toLowerCase();
-  const sf=(document.getElementById('siteFilter').value||'');
-  const users=Object.values(userMap).filter(u=>{
-    const matchQ=!q||u.email.includes(q)||[...u.sites].some(s=>s.toLowerCase().includes(q));
-    const matchSite=!sf||u.sites.has(sf);
-    return matchQ&&matchSite;
-  }).sort((a,b)=>a.email.localeCompare(b.email));
+function updateStats() {
+  const activeAuth = allAuthUsers.filter(u => u.active !== false).length;
+  document.getElementById('statAuthUsers').textContent   = allAuthUsers.length;
+  document.getElementById('statActiveUsers').textContent = activeAuth;
+  document.getElementById('statUsers').textContent       = Object.keys(userMap).length;
+  document.getElementById('statReports').textContent     = allReports.length;
+  document.getElementById('statSites').textContent       = siteNames.length;
+}
 
-  if(!users.length){
-    document.getElementById('userTableArea').innerHTML=
-      '<div class="empty">No users with report access found.</div>';
+// ════════════════════════════════════════════════════
+// RENDER USER LIST
+// ════════════════════════════════════════════════════
+function renderUsers() {
+  const q  = (document.getElementById('userSearch').value || '').toLowerCase();
+  const sf = document.getElementById('siteFilter').value || '';
+  const ft = document.getElementById('filterType').value || '';
+
+  let users = Object.values(userMap).filter(u => {
+    const au  = emailToAuthUser[u.email];
+    const matchQ = !q ||
+      u.email.includes(q) ||
+      [...u.sites].some(s => s.toLowerCase().includes(q)) ||
+      (au?.displayName || '').toLowerCase().includes(q) ||
+      (au?.company     || '').toLowerCase().includes(q);
+    const matchSite = !sf || u.sites.has(sf);
+    let matchFilter = true;
+    if      (ft === 'auth')      matchFilter = !!au && au.active !== false;
+    else if (ft === 'noaccount') matchFilter = !au;
+    else if (ft === 'inactive')  matchFilter = !!au && au.active === false;
+    return matchQ && matchSite && matchFilter;
+  }).sort((a, b) => {
+    // Auth users first; within same group sort by display name / email
+    const aA = !!emailToAuthUser[a.email];
+    const bA = !!emailToAuthUser[b.email];
+    if (aA !== bA) return aA ? -1 : 1;
+    const aName = (emailToAuthUser[a.email]?.displayName || a.email).toLowerCase();
+    const bName = (emailToAuthUser[b.email]?.displayName || b.email).toLowerCase();
+    return aName.localeCompare(bName);
+  });
+
+  if (!users.length) {
+    document.getElementById('userTableArea').innerHTML = '<div class="empty">No users found matching your filter.</div>';
     return;
   }
 
-  const items=users.map((u,i)=>{
-    const initial=u.email[0].toUpperCase();
-    const siteTags=[...u.sites].sort().map(s=>`<span class="tag">${esc(s)}</span>`).join('');
-    const reportCount=u.reports.length;
+  const items = users.map((u, i) => {
+    const au          = emailToAuthUser[u.email];
+    const displayName = au?.displayName || '';
+    const company     = au?.company     || '';
+    const isActive    = !au || au.active !== false;
+    const uid         = au?.uid || au?.id || '';
+    const initial     = (displayName || u.email)[0].toUpperCase();
 
-    // Individual report rows inside expand
-    const reportRows=u.reports
-      .slice().sort((a,b)=>(a.site||'').localeCompare(b.site||''))
-      .map(r=>{
-        const allDone=(r.idfs||[]).every(x=>x.complete);
+    // Avatar colour: green = active auth, grey = inactive auth, purple = no auth
+    const avClass = !au ? 'av-plain' : (isActive ? 'av-auth' : 'av-inactive');
+
+    // Status badge
+    let statusBadge;
+    if (!au)          statusBadge = `<span class="badge badge-warn">⚠ No Account</span>`;
+    else if (!isActive) statusBadge = `<span class="badge badge-inactive">✗ Inactive</span>`;
+    else              statusBadge = `<span class="badge badge-auth">🔐 Active</span>`;
+
+    const siteTags   = [...u.sites].sort().map(s => `<span class="tag">${esc(s)}</span>`).join('');
+    const reportCount = u.reports.length;
+
+    // ── Profile section (only for auth users) ──────
+    let profileSection = '';
+    if (au) {
+      const activeChecked = isActive ? 'checked' : '';
+      const createdDate   = au.createdAt?.toDate?.()?.toLocaleDateString?.() || '—';
+      profileSection = `
+      <div class="profile-section">
+        <h4>👤 Profile</h4>
+        <div class="edit-grid">
+          <div>
+            <div class="edit-label">Display Name</div>
+            <input class="edit-inp" id="eName_${i}" value="${esc(displayName)}" placeholder="Full name">
+          </div>
+          <div>
+            <div class="edit-label">Company</div>
+            <input class="edit-inp" id="eCompany_${i}" value="${esc(company)}" placeholder="Optional">
+          </div>
+          <div style="grid-column:1/-1">
+            <div class="edit-label">Admin Notes</div>
+            <input class="edit-inp" id="eNotes_${i}" value="${esc(au.notes||'')}" placeholder="Internal notes">
+          </div>
+        </div>
+        <div class="toggle-wrap" style="margin-bottom:10px">
+          <label class="toggle">
+            <input type="checkbox" id="eActive_${i}" ${activeChecked}
+              onchange="toggleUserActive('${uid}','${esc(u.email)}',this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="eActiveLabel_${i}">${isActive ? 'Account Active — user can sign in' : 'Account Inactive — sign-in blocked'}</span>
+        </div>
+        <div class="edit-actions">
+          <button class="btn btn-pu btn-sm" onclick="saveUserEdit('${uid}','${esc(u.email)}',${i})">💾 Save Changes</button>
+          <button class="btn btn-or btn-sm" onclick="sendPasswordReset('${esc(u.email)}')">📧 Send Password Reset</button>
+          <button class="btn btn-dn btn-sm" onclick="deleteUserAccount('${uid}','${esc(u.email)}')">🗑 Delete Profile</button>
+        </div>
+        <div class="profile-meta">
+          Created ${createdDate} · by ${esc(au.createdBy||'—')} · Role: ${esc(au.role||'client')}
+          &nbsp;·&nbsp; UID: <code style="font-size:.65rem">${uid}</code>
+        </div>
+      </div>`;
+    }
+
+    // ── Access section ─────────────────────────────
+    const reportRows = u.reports
+      .slice().sort((a, b) => (a.site || '').localeCompare(b.site || ''))
+      .map(r => {
+        const allDone = (r.idfs || []).every(x => x.complete);
         return `<div class="report-list-item">
           <div class="report-list-info">
-            <div class="report-list-site">${esc(r.site||'—')}</div>
+            <div class="report-list-site">${esc(r.site || '—')}</div>
             <div class="report-list-meta">Ticket: ${esc(r.ticket||'—')} &nbsp;·&nbsp; ${r.date||'—'} &nbsp;·&nbsp;
               <span class="badge ${allDone?'badge-ok':'badge-warn'}">${allDone?'Complete':'In Progress'}</span>
             </div>
@@ -342,170 +623,296 @@ function renderUsers(){
         </div>`;
       }).join('');
 
+    const accessFooter = `
+      <div class="access-footer">
+        ${!au ? `<button class="btn btn-ac btn-sm" onclick="registerUser('${esc(u.email)}')">+ Register in DB</button>` : ''}
+        ${reportCount > 0 ? `<button class="btn btn-dn btn-sm" onclick="revokeAllAccess('${esc(u.email)}')">✕ Revoke All Access</button>` : ''}
+        ${u.registered && !au ? `<button class="btn btn-gh btn-sm" onclick="removeClientRecord('${esc(u.email)}')">🗑 Remove from DB</button>` : ''}
+      </div>`;
+
     return `<div class="user-item">
       <div class="user-header" id="uh${i}" onclick="toggleUser(${i})">
-        <div class="user-avatar">${initial}</div>
+        <div class="user-avatar ${avClass}">${initial}</div>
         <div class="user-info-block">
-          <div class="user-email" title="${esc(u.email)}">${esc(u.email)}</div>
-          <div class="user-sites">${siteTags||'<span style="color:#aaa;font-size:.7rem">No site</span>'}</div>
+          ${displayName ? `<div class="user-display-name">${esc(displayName)}</div>
+          <div class="user-email-line">${esc(u.email)}</div>` :
+          `<div class="user-display-name">${esc(u.email)}</div>`}
+          ${company ? `<div class="user-company">${esc(company)}</div>` : ''}
+          <div class="user-sites">${siteTags || '<span style="color:#aaa;font-size:.7rem">No active report access</span>'}</div>
         </div>
         <div class="user-actions">
-          <span class="report-count">${reportCount} report${reportCount!==1?'s':''}</span>
-          <button class="btn btn-dn btn-sm"
-            onclick="event.stopPropagation();revokeAllAccess('${esc(u.email)}')">✕ Revoke All</button>
+          ${statusBadge}
+          <span class="report-count">${reportCount} report${reportCount !== 1 ? 's' : ''}</span>
           <span class="chevron">▼</span>
         </div>
       </div>
       <div class="user-expand" id="ue${i}">
-        <div class="expand-label">Reports accessible to this user</div>
-        ${reportRows}
+        ${profileSection}
+        <div class="access-section">
+          <div class="expand-label">Report Access (${reportCount})</div>
+          ${reportRows || '<div style="color:#aaa;font-size:.8rem;padding:6px 0">No active report access.</div>'}
+          ${accessFooter}
+        </div>
       </div>
     </div>`;
   }).join('');
 
-  document.getElementById('userTableArea').innerHTML=
-    `<div class="user-list">${items}</div>`;
+  document.getElementById('userTableArea').innerHTML = `<div class="user-list">${items}</div>`;
 }
 
-function toggleUser(i){
-  const header=document.getElementById('uh'+i);
-  const expand=document.getElementById('ue'+i);
-  if(!header||!expand) return;
-  const opening=!expand.classList.contains('open');
-  // Collapse all
-  document.querySelectorAll('.user-expand.open').forEach(el=>{
+function toggleUser(i) {
+  const header = document.getElementById('uh' + i);
+  const expand = document.getElementById('ue' + i);
+  if (!header || !expand) return;
+  const opening = !expand.classList.contains('open');
+  document.querySelectorAll('.user-expand.open').forEach(el => {
     el.classList.remove('open');
-    document.getElementById('uh'+el.id.slice(2))?.classList.remove('open');
+    const hdr = document.getElementById('uh' + el.id.slice(2));
+    if (hdr) hdr.classList.remove('open');
   });
-  if(opening){ expand.classList.add('open'); header.classList.add('open'); }
+  if (opening) { expand.classList.add('open'); header.classList.add('open'); }
+}
+
+// ════════════════════════════════════════════════════
+// EDIT USER PROFILE
+// ════════════════════════════════════════════════════
+async function saveUserEdit(uid, email, idx) {
+  const name    = (document.getElementById('eName_'    + idx)?.value || '').trim();
+  const company = (document.getElementById('eCompany_' + idx)?.value || '').trim();
+  const notes   = (document.getElementById('eNotes_'   + idx)?.value || '').trim();
+  if (!name) { alert('Display name cannot be empty.'); return; }
+  try {
+    await db.collection('users').doc(uid).update({ displayName: name, company, notes });
+    const au = allAuthUsers.find(u => u.id === uid);
+    if (au) { au.displayName = name; au.company = company; au.notes = notes; }
+    buildUserMap(); renderUsers();
+    toast('✅ Profile updated');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function toggleUserActive(uid, email, active) {
+  try {
+    await db.collection('users').doc(uid).update({ active });
+    // Also update clients collection
+    await db.collection('clients').doc(email).update({ active }).catch(() => {});
+    const au = allAuthUsers.find(u => u.id === uid);
+    if (au) au.active = active;
+    buildUserMap(); renderUsers();
+    toast(active ? `✅ Account activated for ${email}` : `⏸ Account deactivated for ${email}`);
+  } catch(e) {
+    alert('Error: ' + e.message);
+    // Revert toggle visually
+    buildUserMap(); renderUsers();
+  }
+}
+
+async function sendPasswordReset(email) {
+  if (!confirm(`Send a password reset email to "${email}"?\n\nThey will receive a link to set a new password.`)) return;
+  try {
+    await auth.sendPasswordResetEmail(email);
+    toast(`✅ Password reset email sent to ${email}`);
+  } catch(e) {
+    if (e.code === 'auth/user-not-found')
+      alert('No Firebase Auth account found for this email.\n\nThe profile exists in Firestore but the Auth account may have been deleted. Use "Create New User" to make a fresh account.');
+    else
+      alert('Error: ' + e.message);
+  }
+}
+
+async function deleteUserAccount(uid, email) {
+  if (!confirm(
+    `Delete profile for "${email}"?\n\n` +
+    `• Their Firestore profile and client record will be removed.\n` +
+    `• Their access to all reports will NOT be automatically revoked.\n` +
+    `• Their Firebase Auth account will remain (to fully delete it, go to Firebase Console → Authentication).\n` +
+    `• If active=true was set, you may want to deactivate first.\n\nContinue?`
+  )) return;
+  try {
+    await db.collection('users').doc(uid).delete();
+    await db.collection('clients').doc(email).delete().catch(() => {});
+    allAuthUsers = allAuthUsers.filter(u => u.id !== uid);
+    delete emailToAuthUser[email];
+    allClients = allClients.filter(c => c.email !== email);
+    buildUserMap(); updateStats(); renderUsers();
+    toast(`Profile deleted for "${email}"`);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ════════════════════════════════════════════════════
+// UPSERT CLIENT RECORD  (backward-compat)
+// ════════════════════════════════════════════════════
+async function upsertClient(email) {
+  await db.collection('clients').doc(email).set({
+    email,
+    createdAt  : firebase.firestore.FieldValue.serverTimestamp(),
+    createdBy  : currentUser?.email || 'admin',
+    active     : true
+  }, { merge: true });
+  if (!allClients.find(c => c.email === email)) {
+    allClients.push({ id: email, email, active: true });
+  }
 }
 
 // ════════════════════════════════════════════════════
 // GRANT SITE ACCESS (bulk)
 // ════════════════════════════════════════════════════
-async function grantSiteAccess(){
-  const email=document.getElementById('grantEmail').value.trim().toLowerCase();
-  const site=document.getElementById('grantSite').value;
-  if(!email||!email.includes('@')){ alert('Enter a valid email address.'); return; }
-  if(!site){ alert('Select a site from the dropdown.'); return; }
-  const siteReports=allReports.filter(r=>(r.site||'')==site);
-  if(!siteReports.length){ alert('No reports found for this site.'); return; }
-  if(!confirm(`Grant "${email}" access to all ${siteReports.length} report(s) for "${site}"?`)) return;
-  const btn=document.querySelector('[onclick="grantSiteAccess()"]');
-  const orig=btn.textContent; btn.textContent='⏳…'; btn.disabled=true;
-  try{
-    const batch=db.batch();
-    siteReports.forEach(r=>{
-      batch.update(db.collection('reports').doc(r.id),{
-        allowedEmails:firebase.firestore.FieldValue.arrayUnion(email)
+async function grantSiteAccess() {
+  const email = document.getElementById('grantEmail').value.trim().toLowerCase();
+  const site  = document.getElementById('grantSite').value;
+  if (!email || !email.includes('@')) { alert('Enter a valid email address.'); return; }
+  if (!site)                           { alert('Select a site from the dropdown.'); return; }
+  const siteReports = allReports.filter(r => (r.site || '') === site);
+  if (!siteReports.length) { alert('No reports found for this site.'); return; }
+  if (!confirm(`Grant "${email}" access to all ${siteReports.length} report(s) for "${site}"?`)) return;
+  const btn = document.querySelector('[onclick="grantSiteAccess()"]');
+  const orig = btn.textContent; btn.textContent = '⏳…'; btn.disabled = true;
+  try {
+    const batch = db.batch();
+    siteReports.forEach(r => {
+      batch.update(db.collection('reports').doc(r.id), {
+        allowedEmails: firebase.firestore.FieldValue.arrayUnion(email)
       });
     });
     await batch.commit();
-    // Update local cache
-    siteReports.forEach(r=>{
-      r.allowedEmails=[...(r.allowedEmails||[]).filter(e=>e!==email),email];
+    await upsertClient(email);
+    siteReports.forEach(r => {
+      r.allowedEmails = [...(r.allowedEmails || []).filter(e => e !== email), email];
     });
-    document.getElementById('grantEmail').value='';
-    document.getElementById('grantSite').value='';
-    document.getElementById('grantSiteCount').textContent='';
+    document.getElementById('grantEmail').value = '';
+    document.getElementById('grantSite').value  = '';
+    document.getElementById('grantSiteCount').textContent = '';
     buildUserMap(); updateStats(); renderUsers();
     toast(`✅ Granted "${email}" access to ${siteReports.length} report(s) for "${site}"`);
-  }catch(e){ alert('Error: '+e.message); }
-  finally{ btn.textContent=orig; btn.disabled=false; }
+  } catch(e) { alert('Error: ' + e.message); }
+  finally    { btn.textContent = orig; btn.disabled = false; }
 }
 
 // ════════════════════════════════════════════════════
 // GRANT SINGLE REPORT ACCESS
 // ════════════════════════════════════════════════════
-async function grantSingleAccess(){
-  const email=document.getElementById('grantSingleEmail').value.trim().toLowerCase();
-  const reportId=document.getElementById('grantSingleReport').value;
-  if(!email||!email.includes('@')){ alert('Enter a valid email address.'); return; }
-  if(!reportId){ alert('Select a report from the dropdown.'); return; }
-  const btn=document.querySelector('[onclick="grantSingleAccess()"]');
-  const orig=btn.textContent; btn.textContent='⏳…'; btn.disabled=true;
-  try{
+async function grantSingleAccess() {
+  const email    = document.getElementById('grantSingleEmail').value.trim().toLowerCase();
+  const reportId = document.getElementById('grantSingleReport').value;
+  if (!email || !email.includes('@')) { alert('Enter a valid email address.'); return; }
+  if (!reportId)                       { alert('Select a report from the dropdown.'); return; }
+  const btn  = document.querySelector('[onclick="grantSingleAccess()"]');
+  const orig = btn.textContent; btn.textContent = '⏳…'; btn.disabled = true;
+  try {
     await db.collection('reports').doc(reportId).update({
-      allowedEmails:firebase.firestore.FieldValue.arrayUnion(email)
+      allowedEmails: firebase.firestore.FieldValue.arrayUnion(email)
     });
-    const r=allReports.find(x=>x.id===reportId);
-    if(r) r.allowedEmails=[...(r.allowedEmails||[]).filter(e=>e!==email),email];
-    document.getElementById('grantSingleEmail').value='';
-    document.getElementById('grantSingleReport').value='';
+    await upsertClient(email);
+    const r = allReports.find(x => x.id === reportId);
+    if (r) r.allowedEmails = [...(r.allowedEmails || []).filter(e => e !== email), email];
+    document.getElementById('grantSingleEmail').value  = '';
+    document.getElementById('grantSingleReport').value = '';
     buildUserMap(); updateStats(); renderUsers();
     toast(`✅ Granted access to "${email}"`);
-  }catch(e){ alert('Error: '+e.message); }
-  finally{ btn.textContent=orig; btn.disabled=false; }
+  } catch(e) { alert('Error: ' + e.message); }
+  finally    { btn.textContent = orig; btn.disabled = false; }
+}
+
+// ════════════════════════════════════════════════════
+// REGISTER / REMOVE CLIENT RECORD
+// ════════════════════════════════════════════════════
+async function registerUser(email) {
+  try {
+    await upsertClient(email);
+    buildUserMap(); renderUsers();
+    toast(`✅ "${email}" registered in the database`);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function removeClientRecord(email) {
+  if (!confirm(`Remove "${email}" from the clients database?\n\nThis does NOT revoke their report access — they will re-appear as "Not registered" if they still have access to reports.`)) return;
+  try {
+    await db.collection('clients').doc(email).delete();
+    allClients = allClients.filter(c => c.email !== email);
+    buildUserMap(); renderUsers();
+    toast(`Removed "${email}" from the database`);
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 // ════════════════════════════════════════════════════
 // REVOKE ACCESS
 // ════════════════════════════════════════════════════
-async function revokeOneAccess(email,reportId){
-  const r=allReports.find(x=>x.id===reportId);
-  if(!confirm(`Remove access for "${email}" from report "${r?.site||reportId}"?`)) return;
-  try{
+async function revokeOneAccess(email, reportId) {
+  const r = allReports.find(x => x.id === reportId);
+  if (!confirm(`Remove access for "${email}" from report "${r?.site || reportId}"?`)) return;
+  try {
     await db.collection('reports').doc(reportId).update({
-      allowedEmails:firebase.firestore.FieldValue.arrayRemove(email)
+      allowedEmails: firebase.firestore.FieldValue.arrayRemove(email)
     });
-    if(r) r.allowedEmails=(r.allowedEmails||[]).filter(e=>e!==email);
+    if (r) r.allowedEmails = (r.allowedEmails || []).filter(e => e !== email);
     buildUserMap(); updateStats(); renderUsers();
-    toast(`Removed access for "${email}" from "${r?.site||reportId}"`);
-  }catch(e){ alert('Error: '+e.message); }
+    toast(`Removed access for "${email}" from "${r?.site || reportId}"`);
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
-async function revokeAllAccess(email){
-  const u=userMap[email.toLowerCase()];
-  if(!u){ alert('User not found.'); return; }
-  if(!confirm(`Remove ALL access for "${email}"?\nThis affects ${u.reports.length} report(s).`)) return;
-  try{
-    const batch=db.batch();
-    u.reports.forEach(r=>{
-      batch.update(db.collection('reports').doc(r.id),{
-        allowedEmails:firebase.firestore.FieldValue.arrayRemove(email)
+async function revokeAllAccess(email) {
+  const u = userMap[email.toLowerCase()];
+  if (!u) { alert('User not found.'); return; }
+  if (!confirm(`Remove ALL access for "${email}"?\nThis affects ${u.reports.length} report(s).`)) return;
+  try {
+    const batch = db.batch();
+    u.reports.forEach(r => {
+      batch.update(db.collection('reports').doc(r.id), {
+        allowedEmails: firebase.firestore.FieldValue.arrayRemove(email)
       });
     });
     await batch.commit();
-    u.reports.forEach(r=>{
-      r.allowedEmails=(r.allowedEmails||[]).filter(e=>e!==email);
+    u.reports.forEach(r => {
+      r.allowedEmails = (r.allowedEmails || []).filter(e => e !== email);
     });
     buildUserMap(); updateStats(); renderUsers();
     toast(`✅ Revoked all access for "${email}"`);
-  }catch(e){ alert('Error: '+e.message); }
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 // ════════════════════════════════════════════════════
-// EXPORT ACCESS AS CSV
+// EXPORT CSV
 // ════════════════════════════════════════════════════
-function exportAccessCSV(){
-  const headers=['Email','Site','Report ID','Ticket','Date','Status'];
-  const rows=[];
-  Object.values(userMap).forEach(u=>{
-    u.reports.forEach(r=>{
-      const allDone=(r.idfs||[]).every(i=>i.complete);
-      rows.push([u.email,r.site||'',r.id,r.ticket||'',r.date||'',allDone?'Complete':'Incomplete']
-        .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+function exportAccessCSV() {
+  const headers = ['Name','Email','Company','Account','Site','Report ID','Ticket','Date','Status'];
+  const rows = [];
+  Object.values(userMap).forEach(u => {
+    const au = emailToAuthUser[u.email];
+    u.reports.forEach(r => {
+      const allDone = (r.idfs || []).every(i => i.complete);
+      rows.push([
+        au?.displayName || '',
+        u.email,
+        au?.company || '',
+        au ? (au.active !== false ? 'Active' : 'Inactive') : 'No Account',
+        r.site || '', r.id, r.ticket || '', r.date || '',
+        allDone ? 'Complete' : 'Incomplete'
+      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
     });
   });
-  if(!rows.length){ alert('No access records to export.'); return; }
-  const csv=[headers.join(','),...rows].join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='PALTECH_UserAccess_'+new Date().toISOString().slice(0,10)+'.csv';
+  if (!rows.length) { alert('No access records to export.'); return; }
+  const csv = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'PALTECH_Users_' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
 }
 
 // ════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 let toastTimer;
-function toast(msg){
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.classList.add('show');
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3800);
 }
 </script>
 </body>
