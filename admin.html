@@ -287,19 +287,36 @@ let isAdmin=false;
 
 auth.onAuthStateChanged(async user=>{
   if(!user){ document.getElementById('loginScreen').style.display='flex'; return; }
-  // Check admin status — catch permission-denied gracefully
+  // ── 1. UID-keyed lookup ──────────────────────────────────────────────────
   let adminDoc = null;
   try {
     adminDoc = await db.collection('admins').doc(user.uid).get();
   } catch(e) {
     if(e.code === 'permission-denied'){
-      // Rules not yet configured — show a specific message
       const err = document.getElementById('accessErr');
       if(err){ err.textContent = '⚠️ Database rules need updating. Contact your system administrator.'; err.style.display='block'; }
       auth.signOut(); return;
     }
     throw e;
   }
+  // ── 2. Email fallback for OAuth sign-ins (Microsoft / Google) ───────────
+  if((!adminDoc || !adminDoc.exists) && user.email){
+    try{
+      const emailKey = user.email.toLowerCase();
+      adminDoc = await db.collection('admins').doc(emailKey).get().catch(()=>null);
+      if(!adminDoc || !adminDoc.exists){
+        const q = await db.collection('admins').where('email','==',emailKey).limit(1).get();
+        if(!q.empty){
+          adminDoc = q.docs[0];
+          // Migrate: create email-keyed doc so future logins + Firestore rules work
+          db.collection('admins').doc(emailKey).set({
+            ...q.docs[0].data(), email: emailKey
+          }).catch(()=>{});
+        }
+      }
+    }catch(e){/* ignore */}
+  }
+  // ────────────────────────────────────────────────────────────────────────
   if(!adminDoc || !adminDoc.exists){ document.getElementById('accessErr').style.display='block'; auth.signOut(); return; }
   isAdmin=true;
   document.getElementById('loginScreen').style.display='none';

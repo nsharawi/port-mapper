@@ -289,13 +289,12 @@ auth.onAuthStateChanged(async user => {
 // ── Handle signed-in user ──
 async function handleSignedInUser(user) {
   try {
-    // Read each collection independently so a Firestore rules denial on one
-    // never blocks resolution via the other.  Treat permission-denied as "not found".
+    // ── 1. UID-keyed lookups (fast path) ────────────────────────────────────
     let profileSnap = null, adminSnap = null;
     try {
       profileSnap = await db.collection('users').doc(user.uid).get();
     } catch(e) {
-      if (e.code !== 'permission-denied') throw e; // re-throw unexpected errors
+      if (e.code !== 'permission-denied') throw e;
     }
     try {
       adminSnap = await db.collection('admins').doc(user.uid).get();
@@ -312,6 +311,45 @@ async function handleSignedInUser(user) {
         'Please ask your administrator to configure the database security rules.');
       return;
     }
+
+    // ── 2. EMAIL FALLBACK for OAuth sign-ins (Microsoft / Google) ───────────
+    // When the user signs in with a different provider than the one used to
+    // create their account, Firebase assigns a new UID.  Look up by email and
+    // create a UID-keyed doc so Firestore rules (hasRole, isActiveUser) work.
+    if ((!profileSnap || !profileSnap.exists) && user.email) {
+      try {
+        const q = await db.collection('users')
+          .where('email', '==', user.email.toLowerCase()).limit(1).get();
+        if (!q.empty) {
+          profileSnap = q.docs[0];
+          // Create users/{uid} so Firestore security rules work this session
+          await db.collection('users').doc(user.uid).set({
+            ...q.docs[0].data(), uid: user.uid
+          }).catch(() => {});
+        }
+      } catch(e) { /* ignore — list query may not yet be permitted */ }
+    }
+    if ((!adminSnap || !adminSnap.exists) && user.email) {
+      try {
+        const emailKey = user.email.toLowerCase();
+        // First try email-keyed admin doc (new convention)
+        adminSnap = await db.collection('admins').doc(emailKey).get()
+          .catch(() => null);
+        if (!adminSnap || !adminSnap.exists) {
+          // Fall back to query on legacy uid-keyed docs that store an email field
+          const q = await db.collection('admins')
+            .where('email', '==', emailKey).limit(1).get();
+          if (!q.empty) {
+            adminSnap = q.docs[0];
+            // Migrate: create email-keyed doc for future OAuth sign-ins
+            await db.collection('admins').doc(emailKey).set({
+              ...q.docs[0].data(), email: emailKey
+            }).catch(() => {});
+          }
+        }
+      } catch(e) { /* ignore */ }
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Check for deactivated account
     if (profileSnap && profileSnap.exists && profileSnap.data().active === false) {

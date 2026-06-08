@@ -227,6 +227,14 @@ textarea.inp{resize:vertical}
         <div class="side-label">Admin Notes</div>
         <textarea class="inp" id="newNotes" rows="2" placeholder="Optional notes about this user"></textarea>
       </div>
+      <div class="field-group">
+        <div class="side-label">Role / Access Level</div>
+        <select class="inp" id="newRole">
+          <option value="client">🟢 Client — View reports only</option>
+          <option value="power_user">🟠 Power User — Wizard + Client Portal</option>
+          <option value="admin">🔴 Admin — Full access to all pages</option>
+        </select>
+      </div>
       <button id="createUserBtn" class="btn btn-ac btn-full" onclick="createUser()">➕ Create User Account</button>
       <div id="createErr" style="font-size:.72rem;margin-top:7px;display:none;line-height:1.45;padding:6px 8px;border-radius:5px;background:#FFF3F3;color:#C0392B"></div>
     </div>
@@ -331,8 +339,35 @@ let userMap = {}, emailToAuthUser = {}, siteNames = [];
 // ════════════════════════════════════════════════════
 auth.onAuthStateChanged(async user => {
   if (!user) { document.getElementById('loginScreen').style.display = 'flex'; return; }
-  const adminDoc = await db.collection('admins').doc(user.uid).get();
-  if (!adminDoc.exists) {
+  // ── 1. UID-keyed lookup ──────────────────────────────────────────────────
+  let adminDoc = null;
+  try {
+    adminDoc = await db.collection('admins').doc(user.uid).get();
+  } catch(e) {
+    if(e.code === 'permission-denied'){
+      document.getElementById('accessErr').style.display = 'block';
+      auth.signOut(); return;
+    }
+    throw e;
+  }
+  // ── 2. Email fallback for OAuth sign-ins (Microsoft / Google) ───────────
+  if ((!adminDoc || !adminDoc.exists) && user.email) {
+    try {
+      const emailKey = user.email.toLowerCase();
+      adminDoc = await db.collection('admins').doc(emailKey).get().catch(()=>null);
+      if (!adminDoc || !adminDoc.exists) {
+        const q = await db.collection('admins').where('email','==',emailKey).limit(1).get();
+        if (!q.empty) {
+          adminDoc = q.docs[0];
+          db.collection('admins').doc(emailKey).set({
+            ...q.docs[0].data(), email: emailKey
+          }).catch(()=>{});
+        }
+      }
+    } catch(e) { /* ignore */ }
+  }
+  // ────────────────────────────────────────────────────────────────────────
+  if (!adminDoc || !adminDoc.exists) {
     document.getElementById('accessErr').style.display = 'block';
     auth.signOut(); return;
   }
@@ -417,6 +452,8 @@ async function createUser() {
     await cred.user.updateProfile({ displayName: name });
     await secAuth.signOut(); // sign out new user from secondary app
 
+    const role = document.getElementById('newRole')?.value || 'client';
+
     // Write profile to Firestore users collection (keyed by UID)
     await db.collection('users').doc(uid).set({
       uid,
@@ -424,11 +461,22 @@ async function createUser() {
       displayName : name,
       company     : company || '',
       notes       : notes   || '',
-      role        : 'client',
+      role,
       active      : true,
       createdAt   : firebase.firestore.FieldValue.serverTimestamp(),
       createdBy   : currentUser.email
     });
+
+    // If admin role, write to admins collection keyed by EMAIL
+    // (email-keyed so any OAuth provider works — Google, Microsoft, email/password)
+    if (role === 'admin') {
+      await db.collection('admins').doc(email).set({
+        email,
+        displayName : name,
+        grantedBy   : currentUser.email,
+        grantedAt   : firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
 
     // Also write to clients collection for backward compatibility
     await db.collection('clients').doc(email).set({
@@ -443,6 +491,8 @@ async function createUser() {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    const roleEl = document.getElementById('newRole');
+    if (roleEl) roleEl.value = 'client';
 
     toast(`✅ Account created for ${name} (${email})`);
     await loadAll();
@@ -652,6 +702,14 @@ function renderUsers() {
             <div class="edit-label">Admin Notes</div>
             <input class="edit-inp" id="eNotes_${i}" value="${esc(au.notes||'')}" placeholder="Internal notes">
           </div>
+          <div>
+            <div class="edit-label">Role</div>
+            <select class="edit-inp" id="eRole_${i}">
+              <option value="client" ${(au.role||'client')==='client'?'selected':''}>🟢 Client</option>
+              <option value="power_user" ${au.role==='power_user'?'selected':''}>🟠 Power User</option>
+              <option value="admin" ${(au.role==='admin'||au.role==='superadmin')?'selected':''}>🔴 Admin</option>
+            </select>
+          </div>
         </div>
         <div class="toggle-wrap" style="margin-bottom:10px">
           <label class="toggle">
@@ -747,11 +805,29 @@ async function saveUserEdit(uid, email, idx) {
   const name    = (document.getElementById('eName_'    + idx)?.value || '').trim();
   const company = (document.getElementById('eCompany_' + idx)?.value || '').trim();
   const notes   = (document.getElementById('eNotes_'   + idx)?.value || '').trim();
+  const role    = document.getElementById('eRole_' + idx)?.value || 'client';
   if (!name) { alert('Display name cannot be empty.'); return; }
   try {
-    await db.collection('users').doc(uid).update({ displayName: name, company, notes });
+    await db.collection('users').doc(uid).update({ displayName: name, company, notes, role });
+
+    // Sync admins collection (keyed by email for cross-provider compatibility)
+    const emailKey = email.toLowerCase();
+    if (role === 'admin') {
+      await db.collection('admins').doc(emailKey).set({
+        email: emailKey, displayName: name,
+        grantedBy: currentUser.email,
+        grantedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } else {
+      // Remove from admins (email-keyed and legacy uid-keyed)
+      await Promise.all([
+        db.collection('admins').doc(emailKey).delete().catch(()=>{}),
+        db.collection('admins').doc(uid).delete().catch(()=>{})
+      ]);
+    }
+
     const au = allAuthUsers.find(u => u.id === uid);
-    if (au) { au.displayName = name; au.company = company; au.notes = notes; }
+    if (au) { au.displayName = name; au.company = company; au.notes = notes; au.role = role; }
     buildUserMap(); renderUsers();
     toast('✅ Profile updated');
   } catch(e) { alert('Error: ' + e.message); }
