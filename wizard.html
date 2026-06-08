@@ -1772,8 +1772,8 @@ async function saveCloud(silent=false){
   }
 
   // Count how many upload tasks there will be: sitemap + overview + patchpanel per IDF + 1 Firestore write
-  let totalSteps=3; // Firestore write + build Excel + upload Excel
-  if(state.siteMapData) totalSteps+=2; // render step + upload step
+  let totalSteps=1; // Firestore write always counts
+  if(state.siteMapData) totalSteps++;
   state.idfs.forEach(idf=>{
     if(idf.photos.overview)   totalSteps++;
     if(idf.photos.patchpanel) totalSteps++;
@@ -1833,13 +1833,9 @@ async function saveCloud(silent=false){
     let mapUrl=null;
 
     if(state.siteMapData){
-      advance('Rendering site map with pins…');
-      // exportSiteMap draws pins + legend onto the image; fall back to raw if it fails
-      const renderedMap=await exportSiteMap();
-      const mapToUpload=renderedMap||state.siteMapData;
       advance('Uploading site map…');
       const sRef=fbStorage.ref(`reports/${currentUser.uid}/${ref.id}/sitemap.jpg`);
-      await sRef.putString(mapToUpload,'data_url',{contentType:'image/jpeg'});
+      await sRef.putString(state.siteMapData,'data_url',{contentType:'image/jpeg'});
       mapUrl=await sRef.getDownloadURL();
     }
 
@@ -1870,24 +1866,11 @@ async function saveCloud(silent=false){
       idfData.push(copy);
     }
 
-    // Build and upload Excel workbook
-    advance('Building Excel…');
-    const wb=buildExcel();
-    const xlsxBytes=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-    const xlsxBlob=new Blob([xlsxBytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const xlsxName=(state.job.site||'Site').replace(/[^a-z0-9]/gi,'_');
-    const xlsxDate=(state.job.date||new Date().toISOString().slice(0,10)).replace(/-/g,'');
-    advance('Uploading Excel…');
-    const xRef=fbStorage.ref(`reports/${currentUser.uid}/${ref.id}/PortMapping_${xlsxName}_${xlsxDate}.xlsx`);
-    await xRef.put(xlsxBlob);
-    const excelUrl=await xRef.getDownloadURL();
-
     advance('Saving report data…');
     await ref.set({
       userId:currentUser.uid, userEmail:currentUser.email,
       ...state.job, savedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      allowedEmails:[], idfs:idfData, mapPins:state.mapPins,
-      siteMapUrl:mapUrl, excelUrl
+      allowedEmails:[], idfs:idfData, mapPins:state.mapPins, siteMapUrl:mapUrl
     });
 
     if(!silent) setDone();
