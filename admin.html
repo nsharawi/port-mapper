@@ -164,6 +164,7 @@ tr:hover td{background:#FAFCFF;cursor:pointer}
     <div class="side-section">
       <div class="side-label">Quick Links</div>
       <a href="wizard.html" style="display:block;padding:7px 10px;background:#EBF3FF;border-radius:7px;color:var(--pr);font-size:.8rem;font-weight:600;text-decoration:none;margin-bottom:5px">🔧 Open Field Wizard</a>
+      <a href="users.html" style="display:block;padding:7px 10px;background:#F0F0FF;border-radius:7px;color:#5B2D8E;font-size:.8rem;font-weight:600;text-decoration:none;margin-bottom:5px">👥 User Access Manager</a>
       <a href="index.html" style="display:block;padding:7px 10px;background:#F0F4F8;border-radius:7px;color:#596A7A;font-size:.8rem;font-weight:600;text-decoration:none">📋 Port Map Audit Tool</a>
     </div>
   </div>
@@ -208,6 +209,17 @@ tr:hover td{background:#FAFCFF;cursor:pointer}
           <button class="btn btn-pr btn-sm" onclick="addEmailAccess()">+ Grant Access</button>
         </div>
         <p style="font-size:.7rem;color:#7f8c8d;margin-top:6px">Clients sign in at <strong>client.html</strong> and will see only reports shared with their email.</p>
+
+        <!-- Site-level bulk grant -->
+        <div style="border-top:1px solid #B3D1F0;margin-top:10px;padding-top:10px">
+          <div style="font-size:.75rem;font-weight:700;color:var(--pr);margin-bottom:6px">🏢 Grant Access to All Reports for This Site</div>
+          <div style="font-size:.72rem;color:#596A7A;margin-bottom:6px" id="siteGrantInfo"></div>
+          <div class="email-add-row">
+            <input type="email" id="siteGrantEmail" placeholder="client@example.com">
+            <button class="btn btn-ac btn-sm" onclick="grantSiteAccess()">Grant Site Access</button>
+          </div>
+          <p style="font-size:.7rem;color:#7f8c8d;margin-top:4px">This will add the email to every report saved under this site name.</p>
+        </div>
       </div>
 
       <!-- IDF detail sections -->
@@ -387,6 +399,12 @@ async function openReport(id){
     <div class="meta-item"><label>${k}</label>${v||'—'}</div>`).join('');
   // Access
   renderEmailChips(r.allowedEmails||[]);
+  // Site grant info — count reports for this site
+  const siteName=r.site||'';
+  const siteCount=allReports.filter(x=>(x.site||'')==siteName).length;
+  document.getElementById('siteGrantInfo').textContent=
+    siteName?`Site: "${siteName}" — ${siteCount} report${siteCount!==1?'s':''} total`:'No site name on this report';
+  document.getElementById('siteGrantEmail').value='';
   // IDF sections
   const idfHtml=(r.idfs||[]).map(idf=>{
     const portRows=Object.entries(idf.ports||{})
@@ -476,6 +494,40 @@ async function deleteReport(){
     closeModal(); updateStats(); filterReports();
     alert('Report deleted.');
   }catch(e){ alert('Error: '+e.message); }
+}
+
+// ════════════════════════════════════════════════════
+// GRANT SITE-WIDE ACCESS
+// ════════════════════════════════════════════════════
+async function grantSiteAccess(){
+  const email=document.getElementById('siteGrantEmail').value.trim().toLowerCase();
+  if(!email||!email.includes('@')){ alert('Enter a valid email address.'); return; }
+  if(!currentReportData) return;
+  const siteName=currentReportData.site||'';
+  if(!siteName){ alert('This report has no site name.'); return; }
+  const siteReports=allReports.filter(r=>(r.site||'')==siteName);
+  if(!siteReports.length){ alert('No reports found for this site.'); return; }
+  if(!confirm(`Grant "${email}" access to all ${siteReports.length} report(s) for site "${siteName}"?`)) return;
+  const btn=document.querySelector('[onclick="grantSiteAccess()"]');
+  const origText=btn.textContent; btn.textContent='⏳ Granting…'; btn.disabled=true;
+  try{
+    const batch=db.batch();
+    siteReports.forEach(r=>{
+      batch.update(db.collection('reports').doc(r.id),{
+        allowedEmails:firebase.firestore.FieldValue.arrayUnion(email)
+      });
+    });
+    await batch.commit();
+    // Update local cache
+    siteReports.forEach(r=>{
+      r.allowedEmails=[...(r.allowedEmails||[]).filter(e=>e!==email),email];
+    });
+    // Refresh chips for current report
+    renderEmailChips(currentReportData.allowedEmails);
+    document.getElementById('siteGrantEmail').value='';
+    alert(`✅ Access granted for "${email}" on ${siteReports.length} report(s) in "${siteName}".`);
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ btn.textContent=origText; btn.disabled=false; }
 }
 
 // ════════════════════════════════════════════════════
