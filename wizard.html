@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>PALTECH — Port Mapping Wizard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+:root{--pr:#005A9C;--ac:#27AE60;--wn:#E67E22;--dn:#E74C3C;--pu:#8E44AD;--tx:#2C3E50;--bg:#E9ECEF;--cd:#fff;--bd:#D1D9E0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+
+/* LOGIN OVERLAY */
+#loginOverlay{position:fixed;inset:0;background:rgba(0,22,45,.96);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{background:#fff;border-radius:16px;padding:36px 32px;text-align:center;max-width:360px;width:90%}
+.login-box h2{color:var(--pr);margin-bottom:6px}
+.login-box p{font-size:.85rem;color:#596A7A;margin-bottom:24px}
+.btn-google{display:inline-flex;align-items:center;gap:10px;padding:11px 24px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;font-weight:600;transition:all .15s}
+.btn-google:hover{background:#F8FAFC;border-color:#999}
+.fb-note{font-size:.7rem;color:#aaa;margin-top:14px}
+
+/* TOP BAR */
+.top-bar{background:var(--pr);color:#fff;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:300}
+.top-bar h1{font-size:.9rem;font-weight:700}
+.top-bar .right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.top-bar .contacts{font-size:.68rem;opacity:.85}
+.top-bar .user-chip{font-size:.68rem;background:rgba(255,255,255,.18);border-radius:10px;padding:2px 8px;cursor:pointer}
+
+/* STEP BAR */
+.step-bar{background:#fff;border-bottom:1px solid var(--bd);padding:8px 14px;overflow-x:auto;position:sticky;top:43px;z-index:290}
+.steps{display:flex;align-items:center;min-width:max-content}
+.si{display:flex;align-items:center;gap:5px;font-size:10px;color:#7f8c8d}
+.si .b{width:24px;height:24px;border-radius:50%;background:#D1D9E0;color:#7f8c8d;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.si.active .b{background:var(--pr);color:#fff} .si.done .b{background:var(--ac);color:#fff}
+.si.active{color:var(--pr);font-weight:600} .si.done{color:var(--ac)}
+.sl{width:16px;height:2px;background:#D1D9E0;flex-shrink:0} .sl.done{background:var(--ac)}
+
+/* LAYOUT */
+.wrap{max-width:900px;margin:0 auto;padding:12px 12px 90px}
+.page{display:none} .page.active{display:block}
+
+/* CARDS */
+.card{background:var(--cd);border-radius:12px;padding:16px 18px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.06);border-top:3px solid var(--pr)}
+.card.green{border-top-color:var(--ac)} .card.orange{border-top-color:var(--wn)} .card.red{border-top-color:var(--dn)}
+.ctitle{font-size:.95rem;font-weight:700;color:var(--pr);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+
+/* FORMS */
+.fg{margin-bottom:11px}
+.fg label{display:block;font-weight:600;font-size:.8rem;color:#596A7A;margin-bottom:3px}
+.fg label .req{color:var(--dn);margin-left:2px}
+input[type=text],input[type=date],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:7px;font-size:13px;background:#F8FAFC;font-family:inherit;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--pr);background:#fff;outline:none}
+.input-upper{text-transform:uppercase}
+.input-row{display:flex;gap:6px;align-items:flex-end}
+.input-row input,.input-row select{flex:1}
+.g2{display:grid;gap:10px} @media(min-width:540px){.g2{grid-template-columns:1fr 1fr}}
+.g3{display:grid;gap:10px} @media(min-width:700px){.g3{grid-template-columns:1fr 1fr 1fr}}
+
+/* BUTTONS */
+.btn{padding:9px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-family:inherit}
+.btn-pr{background:var(--pr);color:#fff} .btn-pr:hover{background:#004a80}
+.btn-ac{background:var(--ac);color:#fff} .btn-ac:hover{background:#219150}
+.btn-wn{background:var(--wn);color:#fff}
+.btn-dn{background:var(--dn);color:#fff}
+.btn-ol{background:#fff;color:var(--pr);border:2px solid var(--pr)} .btn-ol:hover{background:#EBF3FF}
+.btn-gh{background:none;color:#596A7A;border:1px solid var(--bd)} .btn-gh:hover{background:#F0F4F8}
+.btn-sm{padding:5px 10px;font-size:11px} .btn-lg{padding:12px 26px;font-size:14px}
+.btn-icon{padding:6px 9px;font-size:14px;border-radius:7px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+
+/* FOOTER NAV */
+.foot-nav{position:fixed;bottom:0;left:0;width:100%;background:rgba(255,255,255,.97);border-top:1px solid var(--bd);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;z-index:200;gap:8px}
+.foot-center{font-size:.72rem;color:#7f8c8d;text-align:center;flex:1}
+
+/* WELCOME */
+.hero{text-align:center;padding:24px 16px 12px}
+.hero .icon{font-size:3rem}
+.hero h2{color:var(--pr);font-size:1.35rem;margin:8px 0 4px}
+.hero p{color:#596A7A;font-size:.85rem;line-height:1.5;max-width:460px;margin:0 auto 16px}
+.dl-list{list-style:none}
+.dl-list li{background:#F0F7FF;border-radius:7px;padding:8px 11px;margin-bottom:5px;font-size:.83rem;display:flex;gap:7px;align-items:flex-start;line-height:1.4}
+.contacts-strip{background:#FFFBE6;border:1px solid #FFD54F;border-radius:8px;padding:10px 14px;display:flex;gap:20px;flex-wrap:wrap;font-size:.8rem}
+.contacts-strip div strong{display:block;color:var(--pr);font-size:.95rem}
+.chk-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px solid #F0F4F8;font-size:.83rem;line-height:1.4}
+.chk-item:last-child{border-bottom:none}
+.chk-item input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin-top:1px;accent-color:var(--ac);cursor:pointer}
+
+/* IDF DASHBOARD */
+.idf-row{border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:all .15s}
+.idf-row:hover{border-color:var(--pr);background:#F0F7FF}
+.idf-row.done{border-color:var(--ac);background:#F0FFF6}
+.idf-icon{width:40px;height:40px;border-radius:50%;background:#EBF3FF;color:var(--pr);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.idf-row.done .idf-icon{background:#E0F8EC;color:var(--ac)}
+.idf-meta{flex:1;min-width:0}
+.idf-meta strong{display:block;font-size:.88rem}
+.idf-meta span{font-size:.72rem;color:#7f8c8d}
+.prog-bar{background:#E0E6EC;border-radius:20px;height:6px;margin:5px 0 2px}
+.prog-fill{height:100%;border-radius:20px;background:var(--ac);transition:width .4s}
+
+/* IDF TABS */
+.idf-tabs{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+.itab{padding:6px 13px;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:#fff;color:#596A7A;white-space:nowrap;transition:all .15s}
+.itab.active{background:var(--pr);color:#fff;border-color:var(--pr)}
+.itab.done{color:var(--ac);border-color:var(--ac)}
+.itab.done.active{background:var(--ac);border-color:var(--ac);color:#fff}
+
+/* PORT TABLE */
+.port-wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:8px;margin-top:8px}
+.ptable{width:100%;border-collapse:collapse;min-width:600px;font-size:12px}
+.ptable th{background:#2C3E50;color:#fff;padding:6px 7px;text-align:left;font-size:10px;font-weight:600}
+.ptable td{padding:2px 4px;border-bottom:1px solid #F0F4F8;vertical-align:middle}
+.ptable tr:last-child td{border-bottom:none}
+.ptable tr.port-active td{background:#F0FFF6}
+.ptable input[type=text]{padding:3px 5px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px}
+.ptable select{padding:3px 4px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;max-width:150px}
+.ptable input[type=checkbox]{width:14px;height:14px;accent-color:var(--ac)}
+.pnum{background:#2C3E50;color:#fff;text-align:center;font-weight:700;font-size:10px;padding:3px 2px;border-radius:4px;display:block;min-width:28px}
+
+/* PHOTO SLOTS */
+.photo-slot{border:2px dashed var(--bd);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px;transition:border-color .15s}
+.photo-slot.captured{border-style:solid;border-color:var(--ac);background:#F0FFF6}
+.photo-slot h4{font-size:.88rem;color:var(--pr);margin-bottom:4px}
+.req-badge{background:var(--dn);color:#fff;font-size:9px;padding:2px 6px;border-radius:10px;margin-left:4px;vertical-align:middle}
+.photo-preview{width:100%;max-height:180px;object-fit:contain;border-radius:7px;margin:8px 0;display:none}
+.photo-fn{font-size:.68rem;color:var(--ac);font-weight:600;margin-top:3px}
+
+/* CAMERA / SCAN MODAL */
+#camModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:1000;flex-direction:column;align-items:center;justify-content:center;padding:14px}
+#camModal.open{display:flex}
+#camVideo{width:100%;max-width:580px;border-radius:8px;background:#111;max-height:60vh;object-fit:cover}
+#camCanvas{display:none}
+#camPreview{width:100%;max-width:580px;border-radius:8px;display:none;max-height:60vh;object-fit:contain}
+.cam-label{color:#fff;font-size:.78rem;text-align:center;margin-top:7px;max-width:580px}
+.cam-controls{display:flex;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap;justify-content:center}
+.btn-shutter{width:60px;height:60px;border-radius:50%;background:#fff;border:5px solid #aaa;cursor:pointer;transition:all .12s}
+.btn-shutter:active{transform:scale(.95)}
+.scan-box{position:absolute;width:200px;height:80px;border:3px solid #0f0;border-radius:6px;box-shadow:0 0 0 1000px rgba(0,0,0,.3);pointer-events:none;display:none}
+
+/* COMPLETE MODAL */
+#doneModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center}
+#doneModal.open{display:flex}
+.done-box{background:#fff;border-radius:16px;padding:28px 24px;text-align:center;max-width:360px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.done-box .done-icon{font-size:3rem}
+.done-box h3{margin:10px 0 6px;color:var(--pr)}
+.done-box p{font-size:.83rem;color:#596A7A;margin-bottom:18px}
+.done-box .btn-col{display:flex;flex-direction:column;gap:8px}
+
+/* SITE MAP */
+.map-scroll{overflow:auto;border:2px dashed var(--bd);border-radius:8px;background:#F8FAFC;position:relative}
+.map-wrap{position:relative;min-width:400px;min-height:240px;display:flex;align-items:center;justify-content:center}
+.map-wrap img{width:100%;display:none;cursor:crosshair;user-select:none;-webkit-user-drag:none}
+.map-legend-strip{position:absolute;top:0;left:0;right:0;background:rgba(255,255,255,.93);padding:6px 10px;border-bottom:1px solid #ddd;display:none;z-index:10}
+.map-legend-strip .leg-title{font-size:9px;font-weight:700;color:#2C3E50;text-transform:uppercase;margin-bottom:3px}
+.map-legend-strip .leg-items{display:flex;flex-wrap:wrap;gap:4px 12px}
+.map-legend-strip .leg-item{font-size:9px;display:flex;align-items:center;gap:3px}
+.map-legend-strip .leg-num{width:16px;height:16px;border-radius:50%;background:var(--dn);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.map-pin{position:absolute;width:24px;height:32px;transform:translate(-50%,-100%);cursor:pointer;user-select:none;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));z-index:5}
+.map-pin svg{width:100%;height:100%}
+
+/* REVIEW / MISC */
+.sum-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.sum-table th{background:#2C3E50;color:#fff;padding:7px 9px;text-align:left}
+.sum-table td{padding:6px 9px;border-bottom:1px solid #F0F4F8}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.badge-ok{background:#D0F0E0;color:#1A7A40} .badge-warn{background:#FFF3D0;color:#A07000} .badge-err{background:#FFE0DF;color:#B02020}
+.hint-box{background:#EBF3FF;border-left:3px solid var(--pr);padding:7px 11px;border-radius:4px;font-size:.77rem;margin-bottom:8px;line-height:1.5}
+.warn-box{background:#FFF8E1;border-left:3px solid var(--wn);padding:7px 11px;border-radius:4px;font-size:.77rem;margin-bottom:8px;line-height:1.5}
+.chip{display:inline-block;background:#EBF3FF;color:var(--pr);border-radius:20px;padding:2px 9px;font-size:.73rem;font-weight:600;margin:2px}
+.chip.green{background:#E0F8EC;color:var(--ac)}
+.section-note{font-size:.76rem;color:#7f8c8d;margin:-6px 0 10px;line-height:1.4}
+hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
+@media print{body *{display:none!important}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div style="font-size:2.5rem">🔧</div>
+    <h2>PALTECH Wizard</h2>
+    <p>Sign in to save surveys to the cloud and access your reports from any device.</p>
+    <button class="btn-google" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="fb-note" id="fbNote">Configure Firebase to enable cloud features</div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <h1>🔧 PALTECH Port Mapping Wizard</h1>
+  <div class="right">
+    <div class="contacts">NOC: 803-310-6959 &nbsp;|&nbsp; Dispatch: 803-978-6171</div>
+    <div class="user-chip" id="userChip" style="display:none" onclick="signOut()">👤 <span id="userEmail"></span> · Sign Out</div>
+  </div>
+</div>
+
+<!-- STEP BAR -->
+<div class="step-bar"><div class="steps" id="stepBar"></div></div>
+
+<div class="wrap">
+
+<!-- PAGE 1: WELCOME -->
+<div class="page active" id="page1">
+  <div class="hero">
+    <div class="icon">📋</div>
+    <h2>Port Mapping Field Wizard</h2>
+    <p>Step-by-step guided workflow. Complete every section to generate your deliverables package.</p>
+  </div>
+  <div class="card">
+    <div class="ctitle">📦 Deliverables Required</div>
+    <ul class="dl-list">
+      <li>🗺️ <div><strong>Site Map</strong> — All IDF/MDF locations labeled</div></li>
+      <li>📊 <div><strong>Excel + PDF Report</strong> — Every connected copper port mapped</div></li>
+      <li>📷 <div><strong>Patch Panel Photos</strong> — Close-up of each panel per IDF</div></li>
+      <li>📷 <div><strong>Overview Photos</strong> — Wide shot showing the PORT MAPPED placard</div></li>
+    </ul>
+    <div class="contacts-strip">
+      <div><strong>803-310-6959</strong>NOC</div>
+      <div><strong>803-978-6171</strong>Dispatch</div>
+    </div>
+  </div>
+  <div class="card orange">
+    <div class="ctitle">⚠️ Before You Start</div>
+    <div id="preChecks">
+      <div class="chk-item"><input type="checkbox"><span>I have confirmed the IDF naming format with the ticket requester</span></div>
+      <div class="chk-item"><input type="checkbox"><span>The <strong>PORT MAPPED placard</strong> (provided by Whitesky) was printed before arriving on site</span></div>
+      <div class="chk-item"><input type="checkbox"><span>I will document every connected copper cable — fiber is skipped</span></div>
+      <div class="chk-item"><input type="checkbox"><span>If I move cable management, I will reattach it when finished</span></div>
+      <div class="chk-item"><input type="checkbox"><span>If AP mapping looks incorrect I will stop and escalate to Engineering/PM</span></div>
+      <div class="chk-item"><input type="checkbox"><span>I will enter <strong>Unknown</strong> where a value is unclear — never leave blank</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">📌 Port Function Reference</div>
+    <div class="g2">
+      <div><span class="chip">🏠 Resident Unit</span><p style="font-size:.76rem;color:#596A7A;margin-top:3px">2 drops/unit typical. Unit # on patch panel.</p></div>
+      <div><span class="chip green">📡 Wireless AP</span><p style="font-size:.76rem;color:#596A7A;margin-top:3px">Juniper: ports 0-23 · Ruckus: ports 1, 20-24</p></div>
+      <div><span class="chip" style="background:#FFF3E0;color:var(--wn)">🏢 Non-Unit</span><p style="font-size:.76rem;color:#596A7A;margin-top:3px">Office, camera, access control, vendor drop</p></div>
+      <div><span class="chip" style="background:#F0F4F8;color:#596A7A">❓ Unknown</span><p style="font-size:.76rem;color:#596A7A;margin-top:3px">Unclear label, duplicate unit #, escalate if AP</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: JOB SETUP -->
+<div class="page" id="page2">
+  <div class="card">
+    <div class="ctitle">🏢 Job Information</div>
+    <div class="g2">
+      <div class="fg">
+        <label>Ticket / Job # <span class="req">*</span></label>
+        <div class="input-row">
+          <input type="text" id="ticketNum" inputmode="text" placeholder="TKT-2024-0001">
+          <button class="btn btn-gh btn-icon" id="kbToggle" title="Toggle keyboard" onclick="toggleKb()">🔢</button>
+        </div>
+      </div>
+      <div class="fg"><label>Survey Date <span class="req">*</span></label><input type="date" id="surveyDate"></div>
+      <div class="fg"><label>Site / Property Name <span class="req">*</span></label><input type="text" id="siteName" placeholder="Parkview Apartments"></div>
+      <div class="fg"><label>Client Name</label><input type="text" id="clientName" placeholder="ABC Property Management"></div>
+      <div class="fg"><label>Technician Name <span class="req">*</span></label><input type="text" id="techName" placeholder="Your full name"></div>
+      <div class="fg">
+        <label>Site Address</label>
+        <div class="input-row">
+          <input type="text" id="siteAddr" placeholder="123 Main St, Columbia SC">
+          <button class="btn btn-gh btn-icon" onclick="fetchGpsAddress()" title="Get GPS address">📍</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">📍 Room / IDF / MDF List</div>
+    <p class="section-note">Confirm naming format with the ticket requester before starting.</p>
+    <div id="idfSetupList"></div>
+    <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
+      <button class="btn btn-ol btn-sm" onclick="addIdf('IDF')">+ Add IDF</button>
+      <button class="btn btn-sm" style="border:2px solid var(--pu);color:var(--pu);background:#fff" onclick="addIdf('MDF')">+ Add MDF</button>
+      <button class="btn btn-gh btn-sm" onclick="addIdf('ROOM')">+ Add Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: SITE MAP -->
+<div class="page" id="page3">
+  <div class="card">
+    <div class="ctitle">🗺️ Site Map — Mark IDF Locations</div>
+    <p class="section-note">Upload the floor plan. Select an IDF then tap the map to place a numbered pin. Drag pins to reposition.</p>
+    <div class="fg"><label>Upload Floor Plan Image</label><input type="file" id="mapUpload" accept="image/*" style="padding:5px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:.77rem;color:#596A7A">Pin for:</span>
+      <select id="pinIdfSel" style="width:auto;padding:4px 7px;font-size:12px"></select>
+      <span id="pinCount" style="font-size:.73rem;color:#7f8c8d"></span>
+    </div>
+    <div class="map-scroll">
+      <div class="map-wrap" id="mapWrap">
+        <div class="map-legend-strip" id="mapLegend">
+          <div class="leg-title">Legend</div>
+          <div class="leg-items" id="legItems"></div>
+        </div>
+        <span id="mapPlaceholder" style="color:#A0B2C1;font-size:.83rem">Upload a site map to begin</span>
+        <img id="mapImg" draggable="false" alt="Site Map">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 4: ROOM/RACK DASHBOARD -->
+<div class="page" id="page4">
+  <div class="card">
+    <div class="ctitle">📊 Overall Progress</div>
+    <div id="overallProgText" style="font-size:.8rem;color:#596A7A;margin-bottom:4px"></div>
+    <div class="prog-bar"><div class="prog-fill" id="overallFill" style="width:0%"></div></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">🏢 Room / Rack Dashboard</div>
+    <div id="idfDashboard"></div>
+  </div>
+  <div class="warn-box" id="dashWarn" style="display:none"></div>
+</div>
+
+<!-- PAGE 5: IDF DETAIL -->
+<div class="page" id="page5">
+  <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+    <button class="btn btn-gh btn-sm" onclick="goPage(4)">← Dashboard</button>
+    <h3 id="idfDetailTitle" style="color:var(--pr);font-size:.95rem;margin:0"></h3>
+  </div>
+  <div class="idf-tabs" id="idfTabs">
+    <div class="itab active" data-tab="info" onclick="switchTab('info')">1 · Info</div>
+    <div class="itab" data-tab="ports" onclick="switchTab('ports')">2 · Ports</div>
+    <div class="itab" data-tab="photos" onclick="switchTab('photos')">3 · Photos</div>
+    <div class="itab" data-tab="placard" onclick="switchTab('placard')">4 · Placard</div>
+  </div>
+
+  <!-- INFO TAB -->
+  <div id="tab-info">
+    <div class="card">
+      <div class="ctitle">🔌 Switch / Equipment Details</div>
+      <div class="g2">
+        <div class="fg">
+          <label>Switch Make &amp; Model <span class="req">*</span></label>
+          <input type="text" id="sw_model" list="sw-models" class="input-upper" placeholder="Juniper EX2300-48P"
+            oninput="saveF('switchModel',this.value.toUpperCase());detectVendor(this.value)">
+          <datalist id="sw-models">
+            <option value="JUNIPER EX2300-24P"><option value="JUNIPER EX2300-48P">
+            <option value="JUNIPER EX3400-24P"><option value="RUCKUS ICX7150-24P">
+            <option value="RUCKUS ICX7150-48P"><option value="CISCO SG350-28P">
+            <option value="CISCO CBS350-24P"><option value="ARUBA 1930-24G">
+            <option value="NETGEAR GS724T">
+          </datalist>
+        </div>
+        <div class="fg"><label>Switch Name / ID</label>
+          <input type="text" id="sw_name" class="input-upper" placeholder="SW-BLDG1-101"
+            oninput="saveF('switchName',this.value.toUpperCase())"></div>
+        <div class="fg">
+          <label>MAC Address</label>
+          <div class="input-row">
+            <input type="text" id="sw_mac" class="input-upper" placeholder="00:1A:2B:3C:4D:5E"
+              oninput="this.value=fmtMac(this.value);saveF('switchMac',this.value)">
+            <button class="btn btn-gh btn-icon" onclick="startScan('sw_mac','mac')" title="Scan barcode/QR">📷</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Serial Number</label>
+          <div class="input-row">
+            <input type="text" id="sw_serial" class="input-upper" placeholder="ABC123456"
+              oninput="saveF('switchSerial',this.value.toUpperCase())">
+            <button class="btn btn-gh btn-icon" onclick="startScan('sw_serial','serial')" title="Scan barcode/QR">📷</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Port Count</label>
+          <select id="sw_ports" onchange="saveF('portCount',parseInt(this.value));rebuildPorts()">
+            <option value="4">4 Ports</option><option value="8">8 Ports</option>
+            <option value="12">12 Ports</option><option value="16">16 Ports</option>
+            <option value="24">24 Ports</option><option value="48" selected>48 Ports</option>
+          </select>
+        </div>
+        <div class="fg"><label>Patch Panels (count)</label>
+          <input type="text" inputmode="numeric" id="sw_pp" placeholder="1" oninput="saveF('ppCount',this.value)"></div>
+      </div>
+      <div class="fg"><label>Location Notes</label>
+        <textarea id="sw_notes" rows="2" placeholder="e.g. East hallway utility closet, 2nd floor" oninput="saveF('locationNotes',this.value)"></textarea></div>
+      <div id="vendorHint" class="hint-box" style="display:none"></div>
+    </div>
+    <div class="card orange">
+      <div class="ctitle">✅ Naming Verification</div>
+      <div class="chk-item"><input type="checkbox" id="chk_nm1"><span>IDF name <strong id="chkIdfLabel"></strong> confirmed with ticket requester</span></div>
+      <div class="chk-item"><input type="checkbox" id="chk_nm2"><span>Switch name matches label in the closet (or mislabel noted)</span></div>
+      <div class="chk-item"><input type="checkbox" id="chk_nm3"><span>Naming format consistent with all other rooms on this job</span></div>
+    </div>
+  </div>
+
+  <!-- PORTS TAB -->
+  <div id="tab-ports" style="display:none">
+    <div id="portVendorHint" class="hint-box" style="display:none"></div>
+    <div class="warn-box">⚠️ If any AP mapping looks incorrect, <strong>stop and escalate</strong> to Engineering or PM.</div>
+    <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-gh btn-sm" onclick="bulkFn()">Bulk Set Function…</button>
+      <button class="btn btn-gh btn-sm" onclick="clearPorts()">🗑 Clear All Ports</button>
+      <span style="font-size:.73rem;color:#7f8c8d;margin-left:auto" id="portCountLabel"></span>
+    </div>
+    <div class="port-wrap">
+      <table class="ptable"><thead><tr>
+        <th style="width:34px">Port</th>
+        <th style="width:64px">PP #</th>
+        <th style="width:140px">Function</th>
+        <th style="width:110px">Unit / Label</th>
+        <th>Notes</th>
+        <th style="width:44px;text-align:center">Active</th>
+      </tr></thead><tbody id="portTbody"></tbody></table>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="ctitle">🔗 SFP / Uplink Ports</div>
+      <div class="port-wrap">
+        <table class="ptable"><thead><tr>
+          <th style="width:50px">Port</th><th style="width:130px">Function</th>
+          <th style="width:140px">Destination</th><th>Notes</th>
+          <th style="width:44px;text-align:center">Active</th>
+        </tr></thead><tbody id="uplinkTbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHOTOS TAB -->
+  <div id="tab-photos" style="display:none">
+    <div class="hint-box">📷 Both photos required. Files auto-named: <code id="photoNameEx"></code></div>
+    <div class="photo-slot" id="slot-overview">
+      <h4>Wide-Shot Overview <span class="req-badge">REQUIRED</span></h4>
+      <p style="font-size:.73rem;color:#596A7A;margin:3px 0 9px">Must show the PORT MAPPED placard in the IDF</p>
+      <img class="photo-preview" id="prev-overview">
+      <div class="photo-fn" id="fn-overview"></div>
+      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:7px">
+        <button class="btn btn-pr btn-sm" onclick="openPhotoCamera('overview')">📷 Camera</button>
+        <label class="btn btn-ol btn-sm" style="cursor:pointer">📁 Upload
+          <input type="file" accept="image/*" style="display:none" onchange="handleUpload('overview',this)"></label>
+        <button class="btn btn-gh btn-sm" id="rm-overview" style="display:none" onclick="rmPhoto('overview')">✕ Remove</button>
+      </div>
+    </div>
+    <div class="photo-slot" id="slot-patchpanel">
+      <h4>Patch Panel Close-Up <span class="req-badge">REQUIRED</span></h4>
+      <p style="font-size:.73rem;color:#596A7A;margin:3px 0 9px">Clearly showing port labels and cable connections</p>
+      <img class="photo-preview" id="prev-patchpanel">
+      <div class="photo-fn" id="fn-patchpanel"></div>
+      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:7px">
+        <button class="btn btn-pr btn-sm" onclick="openPhotoCamera('patchpanel')">📷 Camera</button>
+        <label class="btn btn-ol btn-sm" style="cursor:pointer">📁 Upload
+          <input type="file" accept="image/*" style="display:none" onchange="handleUpload('patchpanel',this)"></label>
+        <button class="btn btn-gh btn-sm" id="rm-patchpanel" style="display:none" onclick="rmPhoto('patchpanel')">✕ Remove</button>
+      </div>
+    </div>
+    <div id="extraPhotoSlots"></div>
+    <button class="btn btn-gh btn-sm" onclick="addExtraSlot()">+ Additional Photo</button>
+  </div>
+
+  <!-- PLACARD TAB -->
+  <div id="tab-placard" style="display:none">
+    <div class="card orange">
+      <div class="ctitle">🪧 Placard Placement Confirmation</div>
+      <div class="hint-box">The <strong>PORT MAPPED placard</strong> is provided by Whitesky and must be printed <em>before</em> arriving on site. Place it inside this IDF before taking the overview photo.</div>
+      <div class="chk-item"><input type="checkbox" id="chk_placard" onchange="saveF('placardConfirmed',this.checked)">
+        <span>I have placed the Whitesky PORT MAPPED placard inside <strong id="pl_name"></strong> and the overview photo shows it clearly.</span></div>
+      <div class="chk-item"><input type="checkbox" id="chk_cleanup">
+        <span>I have reattached all cable management and velcro that was moved during this work.</span></div>
+      <div class="chk-item"><input type="checkbox" id="chk_copper">
+        <span>All connected copper ports are documented. No fiber cables were mapped.</span></div>
+    </div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="btn btn-ac btn-lg" onclick="completeIdf()">✓ Mark Room Complete</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 6: REVIEW & EXPORT -->
+<div class="page" id="page6">
+  <div class="card">
+    <div class="ctitle">📋 Survey Summary</div>
+    <div style="overflow-x:auto">
+      <table class="sum-table">
+        <thead><tr><th>Room/IDF</th><th>Switch Model</th><th>Ports Mapped</th><th>Photos</th><th>Placard</th><th>Status</th></tr></thead>
+        <tbody id="reviewTbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="reviewWarnings"></div>
+  <div class="card green">
+    <div class="ctitle">📦 Export Deliverables Package</div>
+    <div style="background:#F0FFF6;border:1px solid #B2DFCC;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.77rem;line-height:1.6">
+      <strong>ZIP Contents:</strong><br>
+      📁 Excel/<code>PortMapping_[Site].xlsx</code><br>
+      📁 PDF/<code>PortMapping_[Site].pdf</code><br>
+      📁 Photos/<code>[IDF]-overview.jpg · [IDF]-patchpanel.jpg</code><br>
+      📁 SiteMap/<code>SiteMap_[Site].jpg</code><br>
+      📄 <code>Report_[Site].html</code> · <code>Job_Summary.txt</code>
+    </div>
+    <button class="btn btn-ac btn-lg" id="exportBtn" onclick="exportAll()">⬇ Download Full Package (.zip)</button>
+    <button class="btn btn-ol btn-sm" style="margin-left:8px" onclick="saveCloud()" id="cloudSaveBtn">☁ Save to Cloud</button>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<!-- FOOTER NAV -->
+<div class="foot-nav">
+  <button class="btn btn-gh" id="btnBack" onclick="navBack()">← Back</button>
+  <span class="foot-center" id="footLabel"></span>
+  <button class="btn btn-pr" id="btnNext" onclick="navNext()">Next →</button>
+</div>
+
+<!-- CAMERA MODAL -->
+<div id="camModal">
+  <video id="camVideo" autoplay playsinline muted></video>
+  <canvas id="camCanvas"></canvas>
+  <img id="camPreview" alt="Preview">
+  <div class="scan-box" id="scanBox"></div>
+  <div class="cam-label" id="camLabel"></div>
+  <div class="cam-controls">
+    <button class="btn btn-gh btn-sm" style="color:#fff;border-color:#555" onclick="closeCamera()">✕ Cancel</button>
+    <button class="btn-shutter" id="shutterBtn" onclick="snapPhoto()" title="Take Photo"></button>
+    <button class="btn btn-ac btn-sm" id="acceptBtn" style="display:none" onclick="acceptPhoto()">✓ Use Photo</button>
+    <button class="btn btn-gh btn-sm" id="retakeBtn" style="display:none;color:#fff;border-color:#555" onclick="retakePhoto()">↺ Retake</button>
+  </div>
+  <div style="color:#fff;font-size:.7rem;margin-top:6px;opacity:.7" id="scanStatus"></div>
+</div>
+
+<!-- POST-COMPLETE MODAL -->
+<div id="doneModal">
+  <div class="done-box">
+    <div class="done-icon">✅</div>
+    <h3 id="doneTitle">Room Complete!</h3>
+    <p>What would you like to do next?</p>
+    <div class="btn-col">
+      <button class="btn btn-ol" onclick="addRoomFromModal()">+ Add Another Room / IDF</button>
+      <button class="btn btn-gh" onclick="closeDone();goPage(4)">📊 View Dashboard</button>
+      <button class="btn btn-ac" onclick="closeDone();goPage(6)">📦 Review &amp; Export</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+// FIREBASE CONFIG — replace with your project values
+// ════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC5hauabRSRNg-qsSU_Le7Y541kGiKDv5Q",
+  authDomain: "port-mapper-609b8.firebaseapp.com",
+  projectId: "port-mapper-609b8",
+  storageBucket: "port-mapper-609b8.firebasestorage.app",
+  messagingSenderId: "30294256994",
+  appId: "1:30294256994:web:a50b5f971d1a1a79c7903b",
+  measurementId: "G-XKX8BNEZYK"
+};
+/*
+  FIRESTORE SECURITY RULES (paste in Firebase Console → Firestore → Rules):
+  ─────────────────────────────────────────────────────────────────
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      function isAdmin() {
+        return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      }
+      match /reports/{id} {
+        allow read:   if request.auth != null &&
+                         (isAdmin() || resource.data.userId == request.auth.uid ||
+                          request.auth.token.email in resource.data.allowedEmails);
+        allow create: if request.auth != null;
+        allow update,delete: if request.auth != null &&
+                         (isAdmin() || resource.data.userId == request.auth.uid);
+      }
+      match /admins/{uid} { allow read: if request.auth.uid == uid || isAdmin(); }
+    }
+  }
+*/
+const FB_READY = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+let db=null, fbStorage=null, fbAuth=null, currentUser=null;
+
+if (FB_READY) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  fbAuth    = firebase.auth();
+  db        = firebase.firestore();
+  fbStorage = firebase.storage();
+  fbAuth.onAuthStateChanged(user => {
+    currentUser = user;
+    if (user) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('userEmail').textContent = user.displayName || user.email;
+      document.getElementById('userChip').style.display = '';
+      // Pre-fill tech name if empty
+      const tn = document.getElementById('techName');
+      if (!tn.value) tn.value = user.displayName || '';
+    } else {
+      document.getElementById('loginOverlay').style.display = 'flex';
+    }
+  });
+  document.getElementById('fbNote').style.display = 'none';
+} else {
+  // No Firebase configured — skip login
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('fbNote').textContent = 'Running in offline mode — configure Firebase for cloud saves';
+}
+
+function signInGoogle() {
+  if (!FB_READY) { document.getElementById('loginOverlay').style.display='none'; return; }
+  fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+}
+function signOut() {
+  if (!FB_READY) return;
+  if (confirm('Sign out?')) fbAuth.signOut();
+}
+
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+const state = {
+  currentPage: 1,
+  currentIdfId: null,
+  currentTab: 'info',
+  job: {},
+  siteMapData: null,
+  mapPins: [],   // {id, idfId, pinNum, x, y}
+  pinCounter: 0,
+  idfs: []
+};
+
+function mkIdf(name, type) {
+  return {
+    id: 'idf_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    name: name.toUpperCase(), type,
+    switchModel:'', switchName:'', switchVendor:'',
+    switchMac:'', switchSerial:'', portCount:48, ppCount:1, locationNotes:'',
+    ports:{}, uplinks:{}, photos:{overview:null,patchpanel:null,extras:[]},
+    placardConfirmed:false, complete:false
+  };
+}
+function mkPort(){ return {pp:'',fn:'',unit:'',notes:'',active:false}; }
+function getIdf(){ return state.idfs.find(i=>i.id===state.currentIdfId); }
+
+const FN_OPT = {
+  '':       '-- Function --',
+  'resident':'🏠 Resident Unit',
+  'ap':     '📡 Wireless AP',
+  'nonunit':'🏢 Non-Unit',
+  'uplink': '🔗 MDF Uplink',
+  'unknown':'❓ Unknown',
+  'empty':  '· Not Connected'
+};
+function fnOptions(cur){ return Object.entries(FN_OPT).map(([k,v])=>`<option value="${k}"${k===cur?' selected':''}>${v}</option>`).join(''); }
+
+// ════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════
+const STEPS=[{n:1,l:'Instructions'},{n:2,l:'Job Setup'},{n:3,l:'Site Map'},{n:4,l:'Dashboard'},{n:5,l:'IDF Detail'},{n:6,l:'Export'}];
+
+function goPage(n){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page'+n).classList.add('active');
+  state.currentPage=n;
+  renderStepBar(); updateFootNav(); window.scrollTo(0,0);
+  if(n===4) renderDashboard();
+  if(n===6) renderReview();
+}
+
+function navNext(){
+  const p=state.currentPage;
+  if(p===1&&!chkPreChecks()) return;
+  if(p===2&&!chkJobSetup()) return;
+  if(p===4){ goPage(6); return; }
+  if(p===5){ advanceTab(); return; }
+  goPage(p+1);
+}
+function navBack(){
+  const p=state.currentPage;
+  if(p===5||p===6){ goPage(4); return; }
+  if(p>1) goPage(p-1);
+}
+
+function advanceTab(){
+  const order=['info','ports','photos','placard'];
+  const i=order.indexOf(state.currentTab);
+  if(i<order.length-1) switchTab(order[i+1]);
+}
+
+function updateFootNav(){
+  const p=state.currentPage;
+  const back=document.getElementById('btnBack'), next=document.getElementById('btnNext'), lbl=document.getElementById('footLabel');
+  back.style.display=p===1?'none':'';
+  next.style.display=p===6?'none':'';
+  if(p===4) next.textContent='Review & Export →';
+  else if(p===5){ const o=['info','ports','photos','placard']; const i=o.indexOf(state.currentTab); next.textContent=i<3?'Next Section →':'Finish Room ✓'; }
+  else next.textContent='Next →';
+  const done=state.idfs.filter(i=>i.complete).length;
+  lbl.textContent=p>=4?`${done}/${state.idfs.length} rooms complete`:'';
+}
+
+function renderStepBar(){
+  const bar=document.getElementById('stepBar');
+  bar.innerHTML='';
+  STEPS.forEach((s,i)=>{
+    if(i){ const l=document.createElement('div'); l.className='sl'+(s.n<=state.currentPage?' done':''); bar.appendChild(l); }
+    const el=document.createElement('div');
+    el.className='si'+(s.n===state.currentPage?' active':s.n<state.currentPage?' done':'');
+    el.innerHTML=`<div class="b">${s.n<state.currentPage?'✓':s.n}</div><span>${s.l}</span>`;
+    bar.appendChild(el);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// PAGE 1 — PRE-CHECKS
+// ════════════════════════════════════════════════════
+function chkPreChecks(){
+  const boxes=[...document.querySelectorAll('#preChecks input[type=checkbox]')];
+  const bad=boxes.filter(b=>!b.checked);
+  if(bad.length){ alert(`Please confirm all ${bad.length} pre-job item(s).`); return false; }
+  return true;
+}
+
+// ════════════════════════════════════════════════════
+// PAGE 2 — JOB SETUP
+// ════════════════════════════════════════════════════
+document.getElementById('surveyDate').value=new Date().toISOString().slice(0,10);
+
+let kbNumeric=false;
+function toggleKb(){
+  kbNumeric=!kbNumeric;
+  const inp=document.getElementById('ticketNum');
+  inp.inputMode=kbNumeric?'numeric':'text';
+  inp.pattern=kbNumeric?'[0-9]*':'';
+  document.getElementById('kbToggle').textContent=kbNumeric?'🔡':'🔢';
+  inp.focus();
+}
+
+async function fetchGpsAddress(){
+  if(!navigator.geolocation){ alert('GPS not available on this device.'); return; }
+  const btn=document.querySelector('[onclick="fetchGpsAddress()"]');
+  btn.textContent='⏳'; btn.disabled=true;
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try{
+      const {latitude:lat,longitude:lng}=pos.coords;
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      const d=await r.json();
+      const a=d.address||{};
+      const parts=[a.house_number,a.road,a.city||a.town||a.village,a.state,a.postcode].filter(Boolean);
+      document.getElementById('siteAddr').value=parts.join(', ');
+    }catch(e){ alert('Could not fetch address: '+e.message); }
+    btn.textContent='📍'; btn.disabled=false;
+  }, err=>{ alert('GPS error: '+err.message); btn.textContent='📍'; btn.disabled=false; });
+}
+
+function chkJobSetup(){
+  const t=document.getElementById('ticketNum').value.trim();
+  const s=document.getElementById('siteName').value.trim();
+  const tn=document.getElementById('techName').value.trim();
+  if(!t||!s||!tn){ alert('Please fill Ticket #, Site Name, and Technician Name.'); return false; }
+  if(!state.idfs.length){ alert('Please add at least one IDF/MDF/Room.'); return false; }
+  state.job={
+    ticket:t, date:document.getElementById('surveyDate').value,
+    site:s, client:document.getElementById('clientName').value,
+    tech:tn, addr:document.getElementById('siteAddr').value
+  };
+  refreshPinSel();
+  return true;
+}
+
+let idfCtr=0;
+function addIdf(type){
+  idfCtr++;
+  const def=type+'-'+(100+idfCtr);
+  state.idfs.push(mkIdf(def,type));
+  renderIdfSetup();
+}
+function removeIdf(id){
+  if(!confirm('Remove this room?')) return;
+  state.idfs=state.idfs.filter(i=>i.id!==id);
+  renderIdfSetup();
+}
+function updateIdfName(id,v){
+  const idf=state.idfs.find(i=>i.id===id);
+  if(idf){ idf.name=v.toUpperCase(); refreshPinSel(); }
+}
+function renderIdfSetup(){
+  const el=document.getElementById('idfSetupList');
+  if(!state.idfs.length){ el.innerHTML='<p style="font-size:.8rem;color:#7f8c8d">No rooms added yet.</p>'; return; }
+  el.innerHTML=state.idfs.map(idf=>`
+    <div style="display:flex;align-items:center;gap:7px;padding:7px;border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;background:#F8FAFC">
+      <span>${idf.type==='MDF'?'🟣':idf.type==='ROOM'?'🟢':'🔵'}</span>
+      <input type="text" value="${idf.name}" style="flex:1;font-weight:700;font-size:12px;text-transform:uppercase;padding:4px 7px"
+        onchange="updateIdfName('${idf.id}',this.value)">
+      <span style="font-size:.68rem;color:#7f8c8d">${idf.type}</span>
+      <button class="btn btn-gh btn-sm" style="color:var(--dn);border-color:var(--dn)" onclick="removeIdf('${idf.id}')">✕</button>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// PAGE 3 — SITE MAP
+// ════════════════════════════════════════════════════
+let mapDragging=false,mapDragEl=null,mapDragId=null;
+
+document.getElementById('mapUpload').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rdr=new FileReader();
+  rdr.onload=ev=>{
+    state.siteMapData=ev.target.result;
+    const img=document.getElementById('mapImg');
+    img.src=ev.target.result; img.style.display='block';
+    document.getElementById('mapPlaceholder').style.display='none';
+    // Show legend after short delay (image needs to render)
+    setTimeout(renderMapLegend,300);
+  };
+  rdr.readAsDataURL(f);
+});
+
+document.getElementById('mapImg').addEventListener('click',function(e){
+  if(mapDragging) return;
+  const idfId=document.getElementById('pinIdfSel').value;
+  if(!idfId){ alert('Select a room from the dropdown first.'); return; }
+  const rect=this.getBoundingClientRect();
+  const x=((e.clientX-rect.left)/rect.width)*100;
+  const y=((e.clientY-rect.top)/rect.height)*100;
+  state.pinCounter++;
+  const pin={id:'p'+Date.now(),idfId,pinNum:state.pinCounter,x,y};
+  state.mapPins.push(pin);
+  renderMapPin(pin);
+  renderMapLegend();
+});
+
+function renderMapPin(pin){
+  const idf=state.idfs.find(i=>i.id===pin.idfId);
+  const el=document.createElement('div');
+  el.className='map-pin';
+  el.id='mp_'+pin.id; el.dataset.pinId=pin.id;
+  el.style.left=pin.x+'%'; el.style.top=pin.y+'%';
+  const col=idf?.type==='MDF'?'#8E44AD':idf?.type==='ROOM'?'#27AE60':'#E74C3C';
+  el.innerHTML=`<svg viewBox="0 0 26 34" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13 1C7.48 1 3 5.48 3 11c0 7.75 10 22 10 22s10-14.25 10-22C23 5.48 18.52 1 13 1z"
+      fill="${col}" stroke="white" stroke-width="1.5"/>
+    <text x="13" y="12" text-anchor="middle" dominant-baseline="middle"
+      fill="white" font-size="9" font-weight="bold" font-family="Arial">${pin.pinNum}</text>
+  </svg>`;
+  el.title=idf?.name||'?';
+  el.addEventListener('mousedown',pinDragStart);
+  el.addEventListener('touchstart',pinDragStart,{passive:false});
+  el.addEventListener('contextmenu',ev=>{
+    ev.preventDefault();
+    if(confirm('Remove pin '+pin.pinNum+' ('+idf?.name+')?')){
+      state.mapPins=state.mapPins.filter(p=>p.id!==pin.id);
+      el.remove(); renderMapLegend();
+    }
+  });
+  document.getElementById('mapWrap').appendChild(el);
+}
+
+function renderMapLegend(){
+  const strip=document.getElementById('mapLegend');
+  const items=document.getElementById('legItems');
+  if(!state.mapPins.length){ strip.style.display='none'; return; }
+  strip.style.display='block';
+  items.innerHTML=state.mapPins.map(pin=>{
+    const idf=state.idfs.find(i=>i.id===pin.idfId);
+    const col=idf?.type==='MDF'?'#8E44AD':idf?.type==='ROOM'?'#27AE60':'#E74C3C';
+    return `<div class="leg-item"><div class="leg-num" style="background:${col}">${pin.pinNum}</div>${idf?.name||'?'}</div>`;
+  }).join('');
+  document.getElementById('pinCount').textContent=state.mapPins.length+' pin'+(state.mapPins.length!==1?'s':'');
+}
+
+function pinDragStart(e){
+  if(e.type==='touchstart') e.preventDefault();
+  if(e.button===2) return;
+  mapDragEl=e.target.closest('.map-pin')||e.target;
+  mapDragId=mapDragEl.dataset.pinId;
+  mapDragging=false;
+  document.addEventListener('mousemove',pinDrag);
+  document.addEventListener('touchmove',pinDrag,{passive:false});
+  document.addEventListener('mouseup',pinDragEnd);
+  document.addEventListener('touchend',pinDragEnd);
+}
+function pinDrag(e){
+  mapDragging=true;
+  const img=document.getElementById('mapImg'), rect=img.getBoundingClientRect();
+  const cx=e.clientX||(e.touches&&e.touches[0].clientX);
+  const cy=e.clientY||(e.touches&&e.touches[0].clientY);
+  const x=Math.max(0,Math.min(((cx-rect.left)/rect.width)*100,100));
+  const y=Math.max(0,Math.min(((cy-rect.top)/rect.height)*100,100));
+  mapDragEl.style.left=x+'%'; mapDragEl.style.top=y+'%';
+}
+function pinDragEnd(){
+  if(mapDragging&&mapDragId){
+    const pin=state.mapPins.find(p=>p.id===mapDragId);
+    if(pin){ pin.x=parseFloat(mapDragEl.style.left); pin.y=parseFloat(mapDragEl.style.top); }
+  }
+  document.removeEventListener('mousemove',pinDrag); document.removeEventListener('touchmove',pinDrag);
+  document.removeEventListener('mouseup',pinDragEnd); document.removeEventListener('touchend',pinDragEnd);
+  setTimeout(()=>{mapDragging=false;mapDragEl=null;mapDragId=null;},50);
+}
+
+function refreshPinSel(){
+  const sel=document.getElementById('pinIdfSel');
+  sel.innerHTML='<option value="">-- Select room --</option>'+
+    state.idfs.map(i=>`<option value="${i.id}">${i.name} (${i.type})</option>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// PAGE 4 — DASHBOARD
+// ════════════════════════════════════════════════════
+function renderDashboard(){
+  const done=state.idfs.filter(i=>i.complete).length, total=state.idfs.length;
+  document.getElementById('overallProgText').textContent=`${done} of ${total} rooms completed`;
+  document.getElementById('overallFill').style.width=(total?(done/total*100):0)+'%';
+  const el=document.getElementById('idfDashboard');
+  el.innerHTML=state.idfs.map(idf=>{
+    const mapped=Object.values(idf.ports).filter(p=>p.fn&&p.fn!=='empty').length;
+    const photos=!!(idf.photos.overview&&idf.photos.patchpanel);
+    return `<div class="idf-row ${idf.complete?'done':''}" onclick="openIdf('${idf.id}')">
+      <div class="idf-icon">${idf.type==='MDF'?'🟣':idf.type==='ROOM'?'🟢':'🔵'}</div>
+      <div class="idf-meta">
+        <strong>${idf.name} <span style="font-weight:400;color:#7f8c8d;font-size:.7rem">${idf.type}</span></strong>
+        <span>${mapped} port${mapped!==1?'s':''} mapped · ${photos?'✅ Photos':'📷 Needs photos'} · ${idf.placardConfirmed?'✅ Placard':'🪧 Placard check needed'}</span>
+      </div>
+      <div style="font-size:1.1rem;color:#7f8c8d">${idf.complete?'✅':'›'}</div>
+    </div>`;
+  }).join('');
+  const w=document.getElementById('dashWarn');
+  const inc=total-done;
+  if(inc){ w.style.display=''; w.textContent=`${inc} room(s) still incomplete.`; }
+  else { w.style.display='none'; }
+  document.getElementById('btnNext').textContent='Review & Export →';
+}
+
+// ════════════════════════════════════════════════════
+// PAGE 5 — IDF DETAIL
+// ════════════════════════════════════════════════════
+function openIdf(id){
+  state.currentIdfId=id;
+  const idf=state.idfs.find(i=>i.id===id);
+  document.getElementById('idfDetailTitle').textContent=idf.name+' — '+idf.type;
+  populateInfo(idf); renderPorts(idf); renderPhotos(idf); renderPlacard(idf);
+  document.querySelectorAll('[id^="tab-"]').forEach(el=>el.style.display='none');
+  document.getElementById('tab-info').style.display='block';
+  state.currentTab='info';
+  updateTabs(); goPage(5);
+}
+
+function switchTab(tab){
+  const idf=getIdf();
+  state.currentTab=tab;
+  document.querySelectorAll('[id^="tab-"]').forEach(el=>el.style.display='none');
+  document.getElementById('tab-'+tab).style.display='block';
+  if(tab==='placard'&&idf) renderPlacard(idf);
+  updateTabs(); updateFootNav();
+}
+
+function updateTabs(){
+  document.querySelectorAll('.itab').forEach(t=>{
+    t.classList.toggle('active',t.dataset.tab===state.currentTab);
+  });
+}
+
+// ── INFO ──
+function populateInfo(idf){
+  document.getElementById('sw_model').value =idf.switchModel||'';
+  document.getElementById('sw_name').value  =idf.switchName||'';
+  document.getElementById('sw_mac').value   =idf.switchMac||'';
+  document.getElementById('sw_serial').value=idf.switchSerial||'';
+  document.getElementById('sw_ports').value =idf.portCount||48;
+  document.getElementById('sw_pp').value    =idf.ppCount||'';
+  document.getElementById('sw_notes').value =idf.locationNotes||'';
+  document.getElementById('chkIdfLabel').textContent='"'+idf.name+'"';
+  document.getElementById('pl_name').textContent=idf.name;
+  detectVendor(idf.switchModel||'');
+}
+
+function saveF(field,val){ const idf=getIdf(); if(idf) idf[field]=val; }
+
+function fmtMac(v){
+  return (v.replace(/[^0-9A-Fa-f]/g,'').toUpperCase().slice(0,12).match(/.{1,2}/g)||[]).join(':');
+}
+
+function detectVendor(model){
+  const m=model.toLowerCase();
+  let vendor='';
+  if(m.includes('juniper')||/\bex\d/.test(m)) vendor='Juniper';
+  else if(m.includes('ruckus')||m.includes('icx')) vendor='Ruckus';
+  else if(m.includes('cisco')||/\b(sg|cbs)\d/.test(m)) vendor='Cisco';
+  else if(m.includes('aruba')) vendor='Aruba';
+  const idf=getIdf(); if(idf) idf.switchVendor=vendor;
+  const hint=document.getElementById('vendorHint');
+  const phint=document.getElementById('portVendorHint');
+  if(vendor==='Juniper'){
+    const t='💡 Juniper: AP ports typically <strong>0–23</strong>. POE indicator active for AP ports.';
+    hint.innerHTML=t; hint.style.display=''; phint.innerHTML=t; phint.style.display='';
+  } else if(vendor==='Ruckus'){
+    const t='💡 Ruckus: AP ports typically <strong>1, 20–24</strong>. Check POE status.';
+    hint.innerHTML=t; hint.style.display=''; phint.innerHTML=t; phint.style.display='';
+  } else {
+    hint.style.display='none'; phint.style.display='none';
+  }
+}
+
+function rebuildPorts(){ const idf=getIdf(); if(idf) renderPorts(idf); }
+
+// ── PORTS ──
+function renderPorts(idf){
+  const tbody=document.getElementById('portTbody'); tbody.innerHTML='';
+  for(let i=1;i<=(idf.portCount||48);i++){
+    if(!idf.ports[i]) idf.ports[i]=mkPort();
+    const p=idf.ports[i];
+    const tr=document.createElement('tr');
+    if(p.active) tr.classList.add('port-active');
+    tr.innerHTML=`
+      <td><span class="pnum">${i}</span></td>
+      <td><input type="text" inputmode="numeric" pattern="[0-9]*" value="${p.pp}" style="width:56px"
+            oninput="sp(${i},'pp',this.value,this.closest('tr'))"></td>
+      <td><select onchange="sp(${i},'fn',this.value,this.closest('tr'))">${fnOptions(p.fn)}</select></td>
+      <td><input type="text" value="${p.unit}" placeholder="Label"
+            oninput="sp(${i},'unit',this.value,this.closest('tr'))"></td>
+      <td><input type="text" value="${p.notes}" placeholder="Notes"
+            oninput="sp(${i},'notes',this.value)"></td>
+      <td style="text-align:center"><input type="checkbox" data-pa="${i}" ${p.active?'checked':''}
+            onchange="sp(${i},'active',this.checked,this.closest('tr'))"></td>`;
+    tbody.appendChild(tr);
+  }
+  const utbody=document.getElementById('uplinkTbody'); utbody.innerHTML='';
+  for(let i=1;i<=4;i++){
+    const k='U'+i; if(!idf.uplinks[k]) idf.uplinks[k]=mkPort();
+    const u=idf.uplinks[k];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="pnum" style="background:var(--pu)">SFP${i}</span></td>
+      <td><select onchange="su('${k}','fn',this.value)">${fnOptions(u.fn)}</select></td>
+      <td><input type="text" value="${u.unit}" placeholder="Destination" oninput="su('${k}','unit',this.value)"></td>
+      <td><input type="text" value="${u.notes}" placeholder="Notes" oninput="su('${k}','notes',this.value)"></td>
+      <td style="text-align:center"><input type="checkbox" ${u.active?'checked':''} onchange="su('${k}','active',this.checked)"></td>`;
+    utbody.appendChild(tr);
+  }
+  updatePortLabel();
+}
+
+function sp(num,field,val,tr){
+  const idf=getIdf(); if(!idf) return;
+  if(!idf.ports[num]) idf.ports[num]=mkPort();
+  idf.ports[num][field]=val;
+  // Auto-activate when data entered
+  if(field!=='active' && val && val.toString().trim() && field!=='notes'){
+    idf.ports[num].active=true;
+    const cb=document.querySelector(`[data-pa="${num}"]`);
+    if(cb) cb.checked=true;
+    if(tr) tr.classList.add('port-active');
+  }
+  if(field==='active'&&tr){ if(val) tr.classList.add('port-active'); else tr.classList.remove('port-active'); }
+  updatePortLabel();
+}
+function su(k,field,val){ const idf=getIdf(); if(!idf) return; if(!idf.uplinks[k]) idf.uplinks[k]=mkPort(); idf.uplinks[k][field]=val; }
+function updatePortLabel(){
+  const idf=getIdf(); if(!idf) return;
+  const mapped=Object.values(idf.ports).filter(p=>p.fn&&p.fn!=='empty').length;
+  document.getElementById('portCountLabel').textContent=`${mapped}/${idf.portCount||48} ports assigned`;
+}
+
+function bulkFn(){
+  const fn=prompt('Set function for all ports without a function:\nresident | ap | nonunit | uplink | unknown | empty');
+  if(!fn||!FN_OPT[fn]){ if(fn) alert('Unknown: '+fn); return; }
+  const idf=getIdf(); if(!idf) return;
+  for(let i=1;i<=(idf.portCount||48);i++){
+    if(!idf.ports[i]) idf.ports[i]=mkPort();
+    if(!idf.ports[i].fn) idf.ports[i].fn=fn;
+  }
+  renderPorts(idf);
+}
+
+function clearPorts(){
+  if(!confirm('Clear ALL port mapping data for this room?')) return;
+  const idf=getIdf(); if(!idf) return;
+  idf.ports={}; idf.uplinks={};
+  renderPorts(idf);
+}
+
+// ── PHOTOS ──
+function renderPhotos(idf){
+  document.getElementById('photoNameEx').textContent=`${idf.name}-overview.jpg / ${idf.name}-patchpanel.jpg`;
+  ['overview','patchpanel'].forEach(type=>{
+    const ph=idf.photos[type];
+    const slot=document.getElementById('slot-'+type);
+    const prev=document.getElementById('prev-'+type);
+    const fn=document.getElementById('fn-'+type);
+    const rm=document.getElementById('rm-'+type);
+    if(ph){ prev.src=ph.data; prev.style.display='block'; slot.classList.add('captured'); fn.textContent='📎 '+ph.filename; rm.style.display=''; }
+    else { prev.style.display='none'; slot.classList.remove('captured'); fn.textContent=''; rm.style.display='none'; }
+  });
+}
+
+function rmPhoto(type){ const idf=getIdf(); if(!idf) return; idf.photos[type]=null; renderPhotos(idf); }
+
+function handleUpload(type,inp){
+  const file=inp.files[0]; if(!file) return;
+  const rdr=new FileReader();
+  rdr.onload=ev=>{
+    const idf=getIdf(); if(!idf) return;
+    const fname=`${idf.name}-${type}.jpg`;
+    if(type==='overview'||type==='patchpanel'){
+      idf.photos[type]={data:ev.target.result,filename:fname};
+    } else {
+      const label=type.replace('extra_','');
+      idf.photos.extras.push({data:ev.target.result,filename:`${idf.name}-${label}.jpg`,label});
+    }
+    renderPhotos(idf);
+  };
+  rdr.readAsDataURL(file);
+  inp.value='';
+}
+
+let extraSlotCtr=0;
+function addExtraSlot(){
+  extraSlotCtr++;
+  const label=prompt('Label for this photo:','detail'+extraSlotCtr)||'extra'+extraSlotCtr;
+  const d=document.createElement('div');
+  d.className='photo-slot'; d.id='eslot'+extraSlotCtr;
+  d.innerHTML=`<h4>${label}</h4>
+    <img class="photo-preview" id="eprev${extraSlotCtr}">
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:7px">
+      <button class="btn btn-pr btn-sm" onclick="openPhotoCamera('extra_${label}')">📷 Camera</button>
+      <label class="btn btn-ol btn-sm" style="cursor:pointer">📁 Upload
+        <input type="file" accept="image/*" style="display:none" onchange="handleUpload('extra_${label}',this)">
+      </label>
+    </div>`;
+  document.getElementById('extraPhotoSlots').appendChild(d);
+}
+
+// ── PLACARD ──
+function renderPlacard(idf){
+  document.getElementById('pl_name').textContent=idf.name;
+  document.getElementById('chk_placard').checked=idf.placardConfirmed||false;
+}
+
+function completeIdf(){
+  const idf=getIdf(); if(!idf) return;
+  const warns=[];
+  if(!idf.photos.overview)   warns.push('Overview photo missing');
+  if(!idf.photos.patchpanel) warns.push('Patch panel photo missing');
+  if(!idf.placardConfirmed)  warns.push('Placard not confirmed');
+  const mapped=Object.values(idf.ports).filter(p=>p.fn&&p.fn!=='empty').length;
+  if(!mapped) warns.push('No ports mapped');
+  if(warns.length&&!confirm('⚠️ Incomplete:\n• '+warns.join('\n• ')+'\n\nMark complete anyway?')) return;
+  idf.complete=true;
+  document.getElementById('doneTitle').textContent=idf.name+' Marked Complete!';
+  document.getElementById('doneModal').classList.add('open');
+}
+
+function closeDone(){ document.getElementById('doneModal').classList.remove('open'); }
+function addRoomFromModal(){
+  closeDone();
+  const type=prompt('Type: IDF, MDF, or ROOM','IDF')||'IDF';
+  addIdf(type.toUpperCase()); goPage(2);
+}
+
+// ════════════════════════════════════════════════════
+// CAMERA — PHOTOS
+// ════════════════════════════════════════════════════
+let camStream=null, camPhotoType=null, capturedImg=null;
+let scanMode=false, scanTargetField=null, scanInterval=null;
+
+async function openPhotoCamera(type){
+  camPhotoType=type; scanMode=false;
+  const idf=getIdf();
+  document.getElementById('camLabel').textContent=`📷 ${idf?.name||''} — ${type.replace('extra_','')}`;
+  document.getElementById('camPreview').style.display='none';
+  document.getElementById('camVideo').style.display='block';
+  document.getElementById('shutterBtn').style.display='';
+  document.getElementById('acceptBtn').style.display='none';
+  document.getElementById('retakeBtn').style.display='none';
+  document.getElementById('scanBox').style.display='none';
+  capturedImg=null;
+  if(!navigator.mediaDevices?.getUserMedia){ alert('Camera not available. Use Upload.'); return; }
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+    document.getElementById('camVideo').srcObject=camStream;
+    document.getElementById('camModal').classList.add('open');
+  }catch(e){ alert('Camera error: '+e.message+'\nUse Upload instead.'); }
+}
+
+function snapPhoto(){
+  const video=document.getElementById('camVideo');
+  const canvas=document.getElementById('camCanvas');
+  canvas.width=video.videoWidth||1280; canvas.height=video.videoHeight||720;
+  canvas.getContext('2d').drawImage(video,0,0);
+  capturedImg=canvas.toDataURL('image/jpeg',.92);
+  document.getElementById('camPreview').src=capturedImg;
+  document.getElementById('camPreview').style.display='block';
+  document.getElementById('camVideo').style.display='none';
+  document.getElementById('shutterBtn').style.display='none';
+  document.getElementById('acceptBtn').style.display='';
+  document.getElementById('retakeBtn').style.display='';
+}
+
+function retakePhoto(){
+  capturedImg=null;
+  document.getElementById('camPreview').style.display='none';
+  document.getElementById('camVideo').style.display='block';
+  document.getElementById('shutterBtn').style.display='';
+  document.getElementById('acceptBtn').style.display='none';
+  document.getElementById('retakeBtn').style.display='none';
+}
+
+function acceptPhoto(){
+  if(!capturedImg) return;
+  const idf=getIdf(); if(!idf) return;
+  const type=camPhotoType, fname=`${idf.name}-${type.replace('extra_','')}.jpg`;
+  if(type==='overview'||type==='patchpanel'){
+    idf.photos[type]={data:capturedImg,filename:fname};
+  } else {
+    const label=type.replace('extra_','');
+    idf.photos.extras.push({data:capturedImg,filename:fname,label});
+  }
+  closeCamera(); renderPhotos(idf);
+}
+
+function closeCamera(){
+  if(scanInterval){ clearInterval(scanInterval); scanInterval=null; }
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  document.getElementById('camModal').classList.remove('open');
+  document.getElementById('scanStatus').textContent='';
+}
+
+// ════════════════════════════════════════════════════
+// CAMERA — BARCODE SCAN
+// ════════════════════════════════════════════════════
+async function startScan(fieldId){
+  scanMode=true; scanTargetField=fieldId;
+  document.getElementById('camLabel').textContent='📷 Point at barcode or QR code · Auto-detecting…';
+  document.getElementById('camPreview').style.display='none';
+  document.getElementById('camVideo').style.display='block';
+  document.getElementById('shutterBtn').style.display='none';
+  document.getElementById('acceptBtn').style.display='none';
+  document.getElementById('retakeBtn').style.display='none';
+  document.getElementById('scanBox').style.display='block';
+  document.getElementById('scanStatus').textContent='Scanning…';
+  if(!navigator.mediaDevices?.getUserMedia){ alert('Camera not available.'); return; }
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+    const video=document.getElementById('camVideo');
+    video.srcObject=camStream;
+    await video.play();
+    document.getElementById('camModal').classList.add('open');
+    if('BarcodeDetector' in window){
+      const det=new BarcodeDetector({formats:['qr_code','code_128','code_39','ean_13','data_matrix','codabar']});
+      scanInterval=setInterval(async()=>{
+        try{ const barcodes=await det.detect(video); if(barcodes.length) fillScan(barcodes[0].rawValue); }catch{}
+      },250);
+    } else {
+      const canvas=document.getElementById('camCanvas');
+      scanInterval=setInterval(()=>{
+        canvas.width=video.videoWidth||640; canvas.height=video.videoHeight||480;
+        const ctx=canvas.getContext('2d'); ctx.drawImage(video,0,0);
+        const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+        const code=jsQR(img.data,img.width,img.height);
+        if(code) fillScan(code.data);
+      },250);
+    }
+  }catch(e){ alert('Camera error: '+e.message); }
+}
+
+function fillScan(value){
+  clearInterval(scanInterval); scanInterval=null;
+  document.getElementById('scanStatus').textContent='✅ Found: '+value;
+  // Format if MAC-looking
+  if(/^[0-9A-Fa-f]{12}$/.test(value.replace(/[:-]/g,''))) {
+    value=fmtMac(value.replace(/[:-]/g,''));
+  }
+  const el=document.getElementById(scanTargetField);
+  if(el){ el.value=value; el.dispatchEvent(new Event('input')); }
+  setTimeout(closeCamera,800);
+}
+
+// ════════════════════════════════════════════════════
+// PAGE 6 — REVIEW
+// ════════════════════════════════════════════════════
+function renderReview(){
+  const tbody=document.getElementById('reviewTbody'), warns=document.getElementById('reviewWarnings');
+  const wl=[]; tbody.innerHTML='';
+  state.idfs.forEach(idf=>{
+    const mapped=Object.values(idf.ports).filter(p=>p.fn&&p.fn!=='empty').length;
+    const unk=Object.values(idf.ports).filter(p=>p.fn==='unknown').length;
+    const photos=(idf.photos.overview?1:0)+(idf.photos.patchpanel?1:0);
+    if(!idf.photos.overview)   wl.push(`${idf.name}: Missing overview photo`);
+    if(!idf.photos.patchpanel) wl.push(`${idf.name}: Missing patch panel photo`);
+    if(!idf.placardConfirmed)  wl.push(`${idf.name}: Placard placement not confirmed`);
+    if(unk) wl.push(`${idf.name}: ${unk} Unknown port(s) — verify before submitting`);
+    tbody.innerHTML+=`<tr>
+      <td><strong>${idf.name}</strong> <span style="font-size:.7rem;color:#7f8c8d">${idf.type}</span></td>
+      <td>${idf.switchModel||'—'}</td><td>${mapped}/${idf.portCount||48}</td>
+      <td>${photos}/2 ${photos===2?'✅':'⚠️'}</td>
+      <td>${idf.placardConfirmed?'✅':'⚠️'}</td>
+      <td><span class="badge ${idf.complete?'badge-ok':'badge-warn'}">${idf.complete?'Complete':'Incomplete'}</span></td>
+    </tr>`;
+  });
+  warns.innerHTML=wl.map(w=>`<div class="warn-box">${w}</div>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// PHOTO LABEL OVERLAY (white strip at top)
+// ════════════════════════════════════════════════════
+async function addPhotoLabel(dataUrl, labelText){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const bh=Math.max(36,Math.round(img.height*.06));
+      const canvas=document.createElement('canvas');
+      canvas.width=img.width; canvas.height=img.height;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0);
+      ctx.fillStyle='rgba(255,255,255,0.93)';
+      ctx.fillRect(0,0,img.width,bh);
+      ctx.fillStyle='#2C3E50';
+      const fs=Math.round(bh*.52); ctx.font=`bold ${fs}px Arial`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(labelText,img.width/2,bh/2);
+      // thin border line
+      ctx.strokeStyle='#CBD5E0'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(0,bh); ctx.lineTo(img.width,bh); ctx.stroke();
+      resolve(canvas.toDataURL('image/jpeg',.92));
+    };
+    img.src=dataUrl;
+  });
+}
+
+// ════════════════════════════════════════════════════
+// SITE MAP EXPORT WITH LEGEND
+// ════════════════════════════════════════════════════
+async function exportSiteMap(){
+  const img=document.getElementById('mapImg');
+  if(!img.src||img.style.display==='none') return null;
+  return new Promise(resolve=>{
+    const src=new Image(); src.crossOrigin='anonymous';
+    src.onload=()=>{
+      const W=src.naturalWidth||800, H=src.naturalHeight||600;
+      const canvas=document.createElement('canvas');
+      const LEGEND_H=Math.max(60,Math.round(H*.1));
+      canvas.width=W; canvas.height=H+LEGEND_H;
+      const ctx=canvas.getContext('2d');
+      // White legend strip at top
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,LEGEND_H);
+      ctx.fillStyle='#2C3E50'; ctx.font=`bold ${Math.round(LEGEND_H*.22)}px Arial`;
+      ctx.fillText('LEGEND',12,LEGEND_H*.3);
+      // Draw legend items
+      const itemFontSz=Math.round(LEGEND_H*.18);
+      let lx=12, ly=LEGEND_H*.65;
+      const pinR=Math.round(LEGEND_H*.15);
+      state.mapPins.forEach((pin,i)=>{
+        const idf=state.idfs.find(d=>d.id===pin.idfId);
+        const col=idf?.type==='MDF'?'#8E44AD':idf?.type==='ROOM'?'#27AE60':'#E74C3C';
+        if(lx>W-120){ lx=12; ly+=LEGEND_H*.35; }
+        ctx.beginPath(); ctx.arc(lx+pinR,ly,pinR,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
+        ctx.fillStyle='#fff'; ctx.font=`bold ${Math.round(pinR*.9)}px Arial`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(pin.pinNum,lx+pinR,ly);
+        ctx.fillStyle='#2C3E50'; ctx.font=`${itemFontSz}px Arial`;
+        ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(idf?.name||'?',lx+pinR*2+4,ly);
+        lx+=idf?.name?.length*itemFontSz*.55+pinR*2+20||80;
+      });
+      ctx.strokeStyle='#CBD5E0'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(0,LEGEND_H); ctx.lineTo(W,LEGEND_H); ctx.stroke();
+      // Floor plan
+      ctx.drawImage(src,0,LEGEND_H,W,H);
+      // Draw pins
+      const scale=W/(img.offsetWidth||W);
+      state.mapPins.forEach(pin=>{
+        const idf=state.idfs.find(d=>d.id===pin.idfId);
+        const col=idf?.type==='MDF'?'#8E44AD':idf?.type==='ROOM'?'#27AE60':'#E74C3C';
+        const px=(pin.x/100)*W, py=LEGEND_H+(pin.y/100)*H;
+        const r=Math.max(14,Math.round(W*.016));
+        ctx.save();
+        ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=5; ctx.shadowOffsetY=2;
+        ctx.beginPath(); ctx.arc(px,py-r*1.6,r,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(px-r*.5,py-r*.9); ctx.lineTo(px+r*.5,py-r*.9); ctx.lineTo(px,py); ctx.closePath();
+        ctx.fillStyle=col; ctx.fill();
+        ctx.restore();
+        ctx.beginPath(); ctx.arc(px,py-r*1.6,r,0,Math.PI*2);
+        ctx.strokeStyle='white'; ctx.lineWidth=Math.max(1.5,r*.12); ctx.stroke();
+        ctx.fillStyle='white'; ctx.font=`bold ${Math.round(r*.85)}px Arial`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(pin.pinNum,px,py-r*1.6);
+      });
+      resolve(canvas.toDataURL('image/jpeg',.92));
+    };
+    src.onerror=()=>resolve(state.siteMapData||null);
+    src.src=state.siteMapData||img.src;
+  });
+}
+
+// ════════════════════════════════════════════════════
+// EXCEL
+// ════════════════════════════════════════════════════
+function buildExcel(){
+  const wb=XLSX.utils.book_new(), d=state.job;
+  const sum=[['PALTECH LLC — PORT MAPPING SURVEY REPORT'],[''],
+    ['Field','Value'],['Ticket/Job #',d.ticket||''],['Site Name',d.site||''],
+    ['Client',d.client||''],['Address',d.addr||''],['Technician',d.tech||''],
+    ['Date',d.date||''],['Total Rooms',state.idfs.length],[''],
+    ['NOC','803-310-6959'],['Dispatch','803-978-6171']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Job Summary');
+  const rows=[['Room/IDF','Switch Make+Model','Switch Name','Switch MAC','Serial',
+    'Port','PP Port','Function','Unit/Label','Active','Notes']];
+  state.idfs.forEach(idf=>{
+    for(let i=1;i<=(idf.portCount||48);i++){
+      const p=idf.ports[i]||mkPort();
+      if(p.fn==='empty') continue;
+      rows.push([idf.name,idf.switchModel||'',idf.switchName||'',idf.switchMac||'',idf.switchSerial||'',
+        i,p.pp||'',(FN_OPT[p.fn]||'').replace(/^[^\w]*/,'').trim()||'',p.unit||'',p.active?'YES':'NO',p.notes||'']);
+    }
+    for(let i=1;i<=4;i++){
+      const k='U'+i, u=idf.uplinks[k]||mkPort();
+      if(!u.fn||u.fn==='empty') continue;
+      rows.push([idf.name,idf.switchModel||'',idf.switchName||'',idf.switchMac||'',idf.switchSerial||'',
+        'SFP'+i,'',(FN_OPT[u.fn]||'').replace(/^[^\w]*/,'').trim()||'',u.unit||'',u.active?'YES':'NO',u.notes||'']);
+    }
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:16},{wch:18},{wch:16},{wch:22},{wch:14},{wch:8},{wch:8},{wch:16},{wch:20},{wch:7},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,ws,'Port Mappings');
+  return wb;
+}
+
+// ════════════════════════════════════════════════════
+// PDF
+// ════════════════════════════════════════════════════
+async function buildPDF(labeledPhotos){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+  const d=state.job, W=doc.internal.pageSize.getWidth(), marg=14;
+  // Cover
+  doc.setFillColor(0,90,156); doc.rect(0,0,W,28,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(18); doc.setFont(undefined,'bold');
+  doc.text('PALTECH LLC',marg,12);
+  doc.setFontSize(11); doc.setFont(undefined,'normal');
+  doc.text('PORT MAPPING SURVEY REPORT',marg,20);
+  doc.setTextColor(0,0,0); doc.setFontSize(10); let y=36;
+  const info=[['Ticket / Job #',d.ticket||'—'],['Site Name',d.site||'—'],['Client',d.client||'—'],
+    ['Address',d.addr||'—'],['Technician',d.tech||'—'],['Date',d.date||'—']];
+  info.forEach(([k,v])=>{
+    doc.setFont(undefined,'bold'); doc.text(k+':',marg,y);
+    doc.setFont(undefined,'normal'); doc.text(v,marg+38,y);
+    y+=7;
+  });
+  y+=4;
+  doc.setFont(undefined,'bold'); doc.text('NOC: 803-310-6959   |   Dispatch: 803-978-6171',marg,y);
+  // Per-IDF tables
+  state.idfs.forEach(idf=>{
+    doc.addPage();
+    doc.setFillColor(44,62,80); doc.rect(0,0,W,14,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(12); doc.setFont(undefined,'bold');
+    doc.text(`${idf.name}  (${idf.type})`,marg,9);
+    doc.setTextColor(0,0,0); doc.setFontSize(9); doc.setFont(undefined,'normal');
+    let iy=20;
+    const swInfo=[['Switch Make+Model',idf.switchModel||'—'],['Switch Name',idf.switchName||'—'],
+      ['MAC',idf.switchMac||'—'],['Serial',idf.switchSerial||'—'],['Location',idf.locationNotes||'—']];
+    swInfo.forEach(([k,v])=>{ doc.setFont(undefined,'bold'); doc.text(k+':',marg,iy); doc.setFont(undefined,'normal'); doc.text(v,marg+34,iy); iy+=5; });
+    // Port table
+    const portRows=[];
+    for(let i=1;i<=(idf.portCount||48);i++){
+      const p=idf.ports[i]||mkPort();
+      if(p.fn==='empty') continue;
+      portRows.push([String(i),p.pp||'',
+        (FN_OPT[p.fn]||'').replace(/^[^\w]*/,'').trim().slice(0,14)||'',
+        p.unit||'',p.active?'Y':'N',p.notes||'']);
+    }
+    if(portRows.length){
+      doc.autoTable({startY:iy+4,margin:{left:marg,right:marg},
+        head:[['Port','PP#','Function','Unit/Label','Active','Notes']],
+        body:portRows,
+        headStyles:{fillColor:[44,62,80],fontSize:8,fontStyle:'bold'},
+        bodyStyles:{fontSize:8},
+        columnStyles:{0:{cellWidth:12},1:{cellWidth:12},2:{cellWidth:28},3:{cellWidth:28},4:{cellWidth:12},5:{cellWidth:60}},
+        alternateRowStyles:{fillColor:[248,250,252]}
+      });
+    }
+    // Photos (thumbnails if available)
+    const photos=[];
+    if(labeledPhotos[idf.id]?.overview) photos.push({d:labeledPhotos[idf.id].overview,l:'Overview'});
+    if(labeledPhotos[idf.id]?.patchpanel) photos.push({d:labeledPhotos[idf.id].patchpanel,l:'Patch Panel'});
+    if(photos.length){
+      const cy=doc.lastAutoTable?.finalY||iy+4;
+      let px=marg;
+      photos.forEach(ph=>{
+        if(cy+58>doc.internal.pageSize.getHeight()-10) doc.addPage();
+        try{
+          doc.addImage(ph.d,'JPEG',px,cy+4,80,55);
+          doc.setFontSize(8); doc.text(ph.l,px+40,cy+62,'center');
+        }catch{}
+        px+=88;
+      });
+    }
+  });
+  return doc.output('arraybuffer');
+}
+
+// ════════════════════════════════════════════════════
+// HTML REPORT
+// ════════════════════════════════════════════════════
+function buildHTML(mapDataUrl, labeledPhotos){
+  const d=state.job;
+  const idfSections=state.idfs.map(idf=>{
+    const portRows=Object.entries(idf.ports)
+      .filter(([k,p])=>p.fn&&p.fn!=='empty')
+      .sort((a,b)=>parseInt(a[0])-parseInt(b[0]))
+      .map(([k,p])=>`<tr><td>${k}</td><td>${p.pp||''}</td><td>${(FN_OPT[p.fn]||'').replace(/^[^\w]*/,'').trim()}</td><td>${p.unit||''}</td><td>${p.active?'✓':''}</td><td>${p.notes||''}</td></tr>`)
+      .join('');
+    const ovImg=labeledPhotos[idf.id]?.overview?`<img src="${labeledPhotos[idf.id].overview}" style="max-width:48%;border-radius:6px;margin:4px">`:
+      (idf.photos.overview?`<img src="${idf.photos.overview.data}" style="max-width:48%;border-radius:6px;margin:4px">`:
+      '<span style="color:#aaa;font-size:.8rem">No overview photo</span>');
+    const ppImg=labeledPhotos[idf.id]?.patchpanel?`<img src="${labeledPhotos[idf.id].patchpanel}" style="max-width:48%;border-radius:6px;margin:4px">`:
+      (idf.photos.patchpanel?`<img src="${idf.photos.patchpanel.data}" style="max-width:48%;border-radius:6px;margin:4px">`:
+      '<span style="color:#aaa;font-size:.8rem">No patch panel photo</span>');
+    return `<section style="page-break-before:always">
+      <h2 style="background:#2C3E50;color:#fff;padding:9px 14px;border-radius:6px;font-size:1rem">${idf.name} — ${idf.type}</h2>
+      <p style="font-size:.83rem;color:#444"><strong>Switch:</strong> ${idf.switchModel||'—'} · ${idf.switchName||'—'} · MAC: ${idf.switchMac||'—'} · Serial: ${idf.switchSerial||'—'}</p>
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-top:8px">
+        <thead><tr style="background:#2C3E50;color:#fff">
+          <th style="padding:5px 7px">Port</th><th>PP#</th><th>Function</th><th>Unit/Label</th><th>Active</th><th>Notes</th>
+        </tr></thead><tbody>${portRows||'<tr><td colspan="6" style="padding:8px;text-align:center;color:#aaa">No ports mapped</td></tr>'}</tbody>
+      </table>
+      <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px">${ovImg}${ppImg}</div>
+    </section>`;
+  }).join('');
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Port Mapping Report — ${d.site||'Site'}</title>
+<style>
+  body{font-family:Arial,sans-serif;max-width:960px;margin:0 auto;padding:24px;color:#2C3E50}
+  h1{color:#005A9C} h2{margin:0} table tr:nth-child(even) td{background:#F8FAFC}
+  table td,table th{padding:5px 7px;border-bottom:1px solid #eee;text-align:left}
+  .header{background:#005A9C;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:20px}
+  .header h1{color:#fff;font-size:1.3rem;margin:0} .header p{margin:4px 0;font-size:.85rem;opacity:.9}
+  .sitemap{max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12);margin:12px 0}
+</style></head><body>
+<div class="header">
+  <h1>PALTECH LLC — Port Mapping Report</h1>
+  <p>${d.site||''} &nbsp;|&nbsp; Ticket: ${d.ticket||'—'} &nbsp;|&nbsp; ${d.date||''}</p>
+  <p>Technician: ${d.tech||'—'} &nbsp;|&nbsp; Client: ${d.client||'—'}</p>
+  <p style="margin-top:8px;font-size:.8rem">NOC: 803-310-6959 &nbsp;|&nbsp; Dispatch: 803-978-6171</p>
+</div>
+${mapDataUrl?`<h3>Site Map</h3><img class="sitemap" src="${mapDataUrl}" alt="Site Map">`:'' }
+${idfSections}
+</body></html>`;
+}
+
+// ════════════════════════════════════════════════════
+// EXPORT ALL (ZIP)
+// ════════════════════════════════════════════════════
+async function exportAll(){
+  const btn=document.getElementById('exportBtn');
+  btn.textContent='⏳ Building…'; btn.disabled=true;
+  try{
+    const d=(state.job.date||new Date().toISOString().slice(0,10)).replace(/-/g,'');
+    const sName=(state.job.site||'Site').replace(/[^a-z0-9]/gi,'_');
+    const zip=new JSZip(), root=zip.folder(`Paltech_${sName}_${d}`);
+
+    // Label photos for all IDFs
+    const labeledPhotos={};
+    for(const idf of state.idfs){
+      labeledPhotos[idf.id]={};
+      if(idf.photos.overview){
+        const label=`${idf.name} — Overview | ${state.job.site||''} | ${state.job.date||''}`;
+        labeledPhotos[idf.id].overview=await addPhotoLabel(idf.photos.overview.data,label);
+      }
+      if(idf.photos.patchpanel){
+        const label=`${idf.name} — Patch Panel | ${state.job.site||''} | ${state.job.date||''}`;
+        labeledPhotos[idf.id].patchpanel=await addPhotoLabel(idf.photos.patchpanel.data,label);
+      }
+    }
+
+    // Site map
+    const mapImg=await exportSiteMap();
+
+    // 1 — Excel
+    const wb=buildExcel();
+    root.folder('Excel').file(`PortMapping_${sName}_${d}.xlsx`,XLSX.write(wb,{bookType:'xlsx',type:'array'}));
+
+    // 2 — PDF
+    const pdfBuf=await buildPDF(labeledPhotos);
+    root.folder('PDF').file(`PortMapping_${sName}_${d}.pdf`,pdfBuf);
+
+    // 3 — Photos
+    const photosDir=root.folder('Photos');
+    for(const idf of state.idfs){
+      if(labeledPhotos[idf.id].overview) photosDir.file(idf.photos.overview.filename,labeledPhotos[idf.id].overview.split(',')[1],{base64:true});
+      else if(idf.photos.overview) photosDir.file(idf.photos.overview.filename,idf.photos.overview.data.split(',')[1],{base64:true});
+      if(labeledPhotos[idf.id].patchpanel) photosDir.file(idf.photos.patchpanel.filename,labeledPhotos[idf.id].patchpanel.split(',')[1],{base64:true});
+      else if(idf.photos.patchpanel) photosDir.file(idf.photos.patchpanel.filename,idf.photos.patchpanel.data.split(',')[1],{base64:true});
+      idf.photos.extras.forEach(p=>photosDir.file(p.filename,p.data.split(',')[1],{base64:true}));
+    }
+
+    // 4 — Site map
+    if(mapImg) root.folder('SiteMap').file(`SiteMap_${sName}.jpg`,mapImg.split(',')[1],{base64:true});
+
+    // 5 — HTML report
+    const htmlReport=buildHTML(mapImg,labeledPhotos);
+    root.file(`Report_${sName}.html`,htmlReport);
+
+    // 6 — Summary
+    root.file('Job_Summary.txt',buildSummary());
+
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`Paltech_${sName}_${d}.zip`;
+    a.click(); URL.revokeObjectURL(a.href);
+
+    // Auto-save to cloud
+    if(FB_READY&&currentUser) saveCloud(true);
+  }catch(e){ alert('Export failed: '+e.message); console.error(e); }
+  finally{ btn.textContent='⬇ Download Full Package (.zip)'; btn.disabled=false; }
+}
+
+function buildSummary(){
+  const d=state.job;
+  return ['PALTECH LLC — PORT MAPPING SURVEY SUMMARY','═'.repeat(50),
+    'Ticket:    '+(d.ticket||'—'),'Site:      '+(d.site||'—'),
+    'Client:    '+(d.client||'—'),'Address:   '+(d.addr||'—'),
+    'Tech:      '+(d.tech||'—'),'Date:      '+(d.date||'—'),'',
+    'ROOMS','─'.repeat(30),
+    ...state.idfs.map(idf=>{
+      const m=Object.values(idf.ports).filter(p=>p.fn&&p.fn!=='empty').length;
+      return `${idf.name} (${idf.type}): ${m} ports · Photos ${(idf.photos.overview?1:0)+(idf.photos.patchpanel?1:0)}/2 · Placard ${idf.placardConfirmed?'YES':'NO'} · ${idf.complete?'COMPLETE':'INCOMPLETE'}`;
+    }),'','NOC: 803-310-6959  |  Dispatch: 803-978-6171'].join('\n');
+}
+
+// ════════════════════════════════════════════════════
+// CLOUD SAVE
+// ════════════════════════════════════════════════════
+async function saveCloud(silent=false){
+  if(!FB_READY||!currentUser){ if(!silent) alert('Firebase not configured or not signed in.'); return; }
+  try{
+    const ref=db.collection('reports').doc();
+    let mapUrl=null;
+    if(state.siteMapData){
+      const sRef=fbStorage.ref(`reports/${currentUser.uid}/${ref.id}/sitemap.jpg`);
+      await sRef.putString(state.siteMapData,'data_url',{contentType:'image/jpeg'});
+      mapUrl=await sRef.getDownloadURL();
+    }
+    // Store photo URLs
+    const idfData=await Promise.all(state.idfs.map(async idf=>{
+      const copy={...idf,photos:{overview:null,patchpanel:null,extras:[]}};
+      const uploadPhoto=async(dataUrl,name)=>{
+        if(!dataUrl) return null;
+        const sr=fbStorage.ref(`reports/${currentUser.uid}/${ref.id}/${name}`);
+        await sr.putString(dataUrl,'data_url',{contentType:'image/jpeg'});
+        return await sr.getDownloadURL();
+      };
+      if(idf.photos.overview) copy.photos.overview={url:await uploadPhoto(idf.photos.overview.data,idf.id+'_overview.jpg'),filename:idf.photos.overview.filename};
+      if(idf.photos.patchpanel) copy.photos.patchpanel={url:await uploadPhoto(idf.photos.patchpanel.data,idf.id+'_pp.jpg'),filename:idf.photos.patchpanel.filename};
+      return copy;
+    }));
+    await ref.set({
+      userId:currentUser.uid, userEmail:currentUser.email,
+      ...state.job, savedAt:firebase.firestore.FieldValue.serverTimestamp(),
+      allowedEmails:[], idfs:idfData, mapPins:state.mapPins, siteMapUrl:mapUrl
+    });
+    if(!silent) alert('✅ Saved to cloud! Report ID: '+ref.id);
+  }catch(e){ if(!silent) alert('Cloud save failed: '+e.message); console.error(e); }
+}
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+renderStepBar();
+updateFootNav();
+</script>
+</body>
+</html>

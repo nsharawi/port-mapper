@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PALTECH — Admin Portal</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--pr:#005A9C;--ac:#27AE60;--dn:#E74C3C;--wn:#E67E22;--pu:#8E44AD;--tx:#2C3E50;--bg:#E9ECEF;--bd:#D1D9E0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx)}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:rgba(0,22,45,.97);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{background:#fff;border-radius:14px;padding:32px 28px;text-align:center;max-width:340px;width:90%}
+.login-box h2{color:var(--pr);margin-bottom:6px;font-size:1.2rem}
+.login-box p{font-size:.83rem;color:#596A7A;margin-bottom:20px}
+.btn-google{display:inline-flex;align-items:center;gap:9px;padding:10px 22px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-google:hover{background:#F8FAFC}
+.access-err{color:var(--dn);font-size:.8rem;margin-top:10px;display:none}
+
+/* TOP BAR */
+.top-bar{background:var(--pr);color:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:300}
+.top-bar h1{font-size:.92rem;font-weight:700}
+.user-info{display:flex;align-items:center;gap:10px;font-size:.78rem}
+.admin-badge{background:rgba(255,255,255,.2);border-radius:10px;padding:2px 9px;font-size:.7rem;font-weight:700}
+
+/* LAYOUT */
+.layout{display:grid;gap:0}
+@media(min-width:900px){.layout{grid-template-columns:260px 1fr}}
+.sidebar{background:#fff;border-right:1px solid var(--bd);min-height:calc(100vh - 44px);padding:14px}
+.main{padding:18px;min-height:calc(100vh - 44px)}
+
+/* SIDEBAR */
+.side-section{margin-bottom:18px}
+.side-label{font-size:.68rem;font-weight:700;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.search-input{width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px;background:#F8FAFC;font-family:inherit}
+.search-input:focus{border-color:var(--pr);outline:none;background:#fff}
+.filter-row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.filter-btn{padding:4px 10px;border:1px solid var(--bd);border-radius:12px;font-size:11px;cursor:pointer;background:#fff;transition:all .15s}
+.filter-btn.active{background:var(--pr);color:#fff;border-color:var(--pr)}
+.stats-box{background:#F0F7FF;border-radius:8px;padding:10px 12px}
+.stats-box div{font-size:.78rem;color:#596A7A;display:flex;justify-content:space-between;padding:2px 0}
+.stats-box div strong{color:var(--pr)}
+
+/* REPORTS TABLE */
+.table-wrap{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
+.table-header{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.table-header h2{font-size:.95rem;color:var(--pr)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#2C3E50;color:#fff;padding:8px 12px;text-align:left;font-size:.75rem;font-weight:600;cursor:pointer;user-select:none}
+th:hover{background:#354a5e}
+td{padding:9px 12px;border-bottom:1px solid #F0F4F8;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFCFF;cursor:pointer}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.badge-ok{background:#D0F0E0;color:#1A7A40}
+.badge-warn{background:#FFF3D0;color:#A07000}
+.badge-err{background:#FFE0DF;color:#B02020}
+
+/* PAGINATION */
+.page-row{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--bd);font-size:.78rem;color:#7f8c8d;flex-wrap:wrap;gap:6px}
+.page-btns{display:flex;gap:4px}
+.page-btn{padding:4px 9px;border:1px solid var(--bd);border-radius:5px;cursor:pointer;background:#fff;font-size:11px}
+.page-btn.active{background:var(--pr);color:#fff;border-color:var(--pr)}
+.page-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* DETAIL MODAL */
+#reportModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;overflow-y:auto;padding:20px}
+#reportModal.open{display:block}
+.modal-card{background:#fff;border-radius:12px;max-width:900px;margin:0 auto;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.modal-header{background:#2C3E50;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{font-size:.95rem}
+.modal-body{padding:20px}
+.meta-grid{display:grid;gap:6px;margin-bottom:14px}
+@media(min-width:600px){.meta-grid{grid-template-columns:1fr 1fr}}
+.meta-item{background:#F8FAFC;border-radius:6px;padding:7px 10px;font-size:.8rem}
+.meta-item label{display:block;font-size:.68rem;font-weight:700;color:#7f8c8d;text-transform:uppercase;margin-bottom:1px}
+
+/* ACCESS MANAGEMENT */
+.access-panel{background:#F0F7FF;border:1px solid #B3D1F0;border-radius:8px;padding:12px 14px}
+.access-panel h4{font-size:.83rem;color:var(--pr);margin-bottom:8px}
+.email-chip{display:inline-flex;align-items:center;gap:5px;background:#EBF3FF;color:var(--pr);border-radius:12px;padding:3px 9px;font-size:.73rem;font-weight:600;margin:2px}
+.email-chip button{background:none;border:none;cursor:pointer;color:#596A7A;font-size:10px;padding:0}
+.email-add-row{display:flex;gap:6px;margin-top:8px}
+.email-add-row input{flex:1;padding:6px 9px;border:1px solid var(--bd);border-radius:6px;font-size:12px}
+
+/* MISC */
+.btn{padding:7px 14px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-family:inherit}
+.btn-pr{background:var(--pr);color:#fff} .btn-ac{background:var(--ac);color:#fff}
+.btn-dn{background:var(--dn);color:#fff} .btn-gh{background:none;color:#596A7A;border:1px solid var(--bd)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.empty-state{text-align:center;padding:48px 24px;color:#7f8c8d}
+.empty-state .icon{font-size:2.8rem;margin-bottom:10px}
+.spinner{display:inline-block;width:22px;height:22px;border:3px solid #ddd;border-top-color:var(--pr);border-radius:50%;animation:spin .7s linear infinite;margin:20px auto;display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.idf-section{margin-bottom:16px;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.idf-sec-head{background:#2C3E50;color:#fff;padding:7px 12px;font-size:.82rem;font-weight:700}
+.idf-table{width:100%;border-collapse:collapse;font-size:.77rem}
+.idf-table th{background:#3D5166;color:#fff;padding:5px 8px;text-align:left;font-size:.72rem}
+.idf-table td{padding:4px 8px;border-bottom:1px solid #F0F4F8}
+.photo-thumb{width:120px;height:80px;object-fit:cover;border-radius:5px;border:1px solid #eee;cursor:pointer;transition:transform .15s}
+.photo-thumb:hover{transform:scale(1.03)}
+.photo-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div style="font-size:2.2rem">🔐</div>
+    <h2>PALTECH Admin Portal</h2>
+    <p>Sign in with your admin Google account to access all survey reports.</p>
+    <button class="btn-google" onclick="adminSignIn()">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="access-err" id="accessErr">⛔ Access denied. Your account is not an admin.</div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <h1>🔧 PALTECH — Admin Portal</h1>
+  <div class="user-info">
+    <span class="admin-badge">ADMIN</span>
+    <span id="adminEmail"></span>
+    <button class="btn btn-gh btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="adminSignOut()">Sign Out</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="side-section">
+      <div class="side-label">Search Reports</div>
+      <input class="search-input" id="searchInput" placeholder="Site name, ticket #, tech…" oninput="filterReports()">
+    </div>
+    <div class="side-section">
+      <div class="side-label">Filter by Status</div>
+      <div class="filter-row">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" data-filter="complete" onclick="setFilter('complete',this)">Complete</button>
+        <button class="filter-btn" data-filter="incomplete" onclick="setFilter('incomplete',this)">Incomplete</button>
+      </div>
+    </div>
+    <div class="side-section">
+      <div class="side-label">Filter by Date</div>
+      <input class="search-input" type="date" id="dateFilter" onchange="filterReports()" style="margin-bottom:4px">
+      <button class="btn btn-gh btn-sm" onclick="document.getElementById('dateFilter').value='';filterReports()">Clear Date</button>
+    </div>
+    <div class="side-section">
+      <div class="side-label">Statistics</div>
+      <div class="stats-box" id="statsBox">
+        <div>Total Reports <strong id="statTotal">0</strong></div>
+        <div>Complete <strong id="statComplete">0</strong></div>
+        <div>This Month <strong id="statMonth">0</strong></div>
+        <div>Technicians <strong id="statTechs">0</strong></div>
+      </div>
+    </div>
+    <div class="side-section">
+      <div class="side-label">Quick Links</div>
+      <a href="wizard.html" style="display:block;padding:7px 10px;background:#EBF3FF;border-radius:7px;color:var(--pr);font-size:.8rem;font-weight:600;text-decoration:none;margin-bottom:5px">🔧 Open Field Wizard</a>
+      <a href="index.html" style="display:block;padding:7px 10px;background:#F0F4F8;border-radius:7px;color:#596A7A;font-size:.8rem;font-weight:600;text-decoration:none">📋 Port Map Audit Tool</a>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="table-wrap">
+      <div class="table-header">
+        <h2>📂 All Survey Reports</h2>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-gh btn-sm" onclick="loadReports()">↻ Refresh</button>
+          <button class="btn btn-gh btn-sm" onclick="exportCSV()">📥 Export CSV</button>
+        </div>
+      </div>
+      <div id="tableArea">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT DETAIL MODAL -->
+<div id="reportModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modalTitle">Report Detail</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gh btn-sm" style="color:#fff;border-color:#555" id="modalDeleteBtn" onclick="deleteReport()">🗑 Delete</button>
+        <button class="btn btn-gh btn-sm" style="color:#fff;border-color:#555" onclick="closeModal()">✕ Close</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Meta info -->
+      <div class="meta-grid" id="modalMeta"></div>
+
+      <!-- Access Management -->
+      <div class="access-panel" style="margin-bottom:16px">
+        <h4>🔒 Client Access — Who Can View This Report</h4>
+        <div id="emailChips"></div>
+        <div class="email-add-row">
+          <input type="email" id="newEmailInput" placeholder="client@example.com">
+          <button class="btn btn-pr btn-sm" onclick="addEmailAccess()">+ Grant Access</button>
+        </div>
+        <p style="font-size:.7rem;color:#7f8c8d;margin-top:6px">Clients sign in at <strong>client.html</strong> and will see only reports shared with their email.</p>
+      </div>
+
+      <!-- IDF detail sections -->
+      <h4 style="color:var(--pr);font-size:.85rem;margin-bottom:8px">Room / IDF Data</h4>
+      <div id="modalIdfSections"></div>
+
+      <!-- Photos -->
+      <h4 style="color:var(--pr);font-size:.85rem;margin:12px 0 6px">Photos</h4>
+      <div id="modalPhotos" class="photo-gallery"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+// FIREBASE — same config as wizard.html
+// ════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC5hauabRSRNg-qsSU_Le7Y541kGiKDv5Q",
+  authDomain: "port-mapper-609b8.firebaseapp.com",
+  projectId: "port-mapper-609b8",
+  storageBucket: "port-mapper-609b8.firebasestorage.app",
+  messagingSenderId: "30294256994",
+  appId: "1:30294256994:web:a50b5f971d1a1a79c7903b",
+  measurementId: "G-XKX8BNEZYK"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+let allReports=[], filteredReports=[], currentFilter='all', currentPage=1, PAGE_SIZE=20;
+let currentReportId=null, currentReportData=null;
+let isAdmin=false;
+
+auth.onAuthStateChanged(async user=>{
+  if(!user){ document.getElementById('loginScreen').style.display='flex'; return; }
+  // Check admin status
+  const adminDoc=await db.collection('admins').doc(user.uid).get();
+  if(!adminDoc.exists){ document.getElementById('accessErr').style.display='block'; auth.signOut(); return; }
+  isAdmin=true;
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminEmail').textContent=user.displayName||user.email;
+  loadReports();
+});
+
+function adminSignIn(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+function adminSignOut(){ if(confirm('Sign out?')) auth.signOut().then(()=>location.reload()); }
+
+// ════════════════════════════════════════════════════
+// LOAD REPORTS
+// ════════════════════════════════════════════════════
+async function loadReports(){
+  document.getElementById('tableArea').innerHTML='<div class="spinner"></div>';
+  try{
+    const snap=await db.collection('reports').orderBy('savedAt','desc').limit(500).get();
+    allReports=snap.docs.map(d=>({id:d.id,...d.data(),
+      savedAtDate:d.data().savedAt?.toDate?.()||new Date(0)}));
+    updateStats();
+    filterReports();
+  }catch(e){ document.getElementById('tableArea').innerHTML=`<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`; }
+}
+
+function updateStats(){
+  const now=new Date(), mo=now.getMonth(), yr=now.getFullYear();
+  const thisMonth=allReports.filter(r=>{ const d=r.savedAtDate; return d.getMonth()===mo&&d.getFullYear()===yr; });
+  const techs=new Set(allReports.map(r=>r.tech||r.userEmail).filter(Boolean));
+  const complete=allReports.filter(r=>(r.idfs||[]).every(i=>i.complete));
+  document.getElementById('statTotal').textContent=allReports.length;
+  document.getElementById('statComplete').textContent=complete.length;
+  document.getElementById('statMonth').textContent=thisMonth.length;
+  document.getElementById('statTechs').textContent=techs.size;
+}
+
+function filterReports(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const df=document.getElementById('dateFilter').value;
+  filteredReports=allReports.filter(r=>{
+    const matchQ=!q||(r.site||'').toLowerCase().includes(q)||(r.ticket||'').toLowerCase().includes(q)||
+      (r.tech||'').toLowerCase().includes(q)||(r.client||'').toLowerCase().includes(q)||
+      (r.addr||'').toLowerCase().includes(q);
+    const matchDate=!df||((r.date||'')==df);
+    const allDone=(r.idfs||[]).every(i=>i.complete);
+    const matchStatus=currentFilter==='all'||(currentFilter==='complete'&&allDone)||(currentFilter==='incomplete'&&!allDone);
+    return matchQ&&matchDate&&matchStatus;
+  });
+  currentPage=1;
+  renderTable();
+}
+
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  filterReports();
+}
+
+// ════════════════════════════════════════════════════
+// RENDER TABLE
+// ════════════════════════════════════════════════════
+function renderTable(){
+  const start=(currentPage-1)*PAGE_SIZE, end=start+PAGE_SIZE;
+  const page=filteredReports.slice(start,end);
+  if(!filteredReports.length){
+    document.getElementById('tableArea').innerHTML=`<div class="empty-state"><div class="icon">📂</div><p>No reports found.</p></div>`;
+    return;
+  }
+  const rows=page.map(r=>{
+    const allDone=(r.idfs||[]).every(i=>i.complete);
+    const rooms=(r.idfs||[]).length;
+    const date=r.savedAtDate?.toLocaleDateString?.()||r.date||'—';
+    return `<tr onclick="openReport('${r.id}')">
+      <td><strong>${r.site||'—'}</strong></td>
+      <td>${r.ticket||'—'}</td>
+      <td>${r.tech||r.userEmail||'—'}</td>
+      <td>${r.client||'—'}</td>
+      <td>${date}</td>
+      <td>${rooms} room${rooms!==1?'s':''}</td>
+      <td><span class="badge ${allDone?'badge-ok':'badge-warn'}">${allDone?'Complete':'In Progress'}</span></td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-gh btn-sm" onclick="manageAccess('${r.id}')">🔒 Access</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const totalPages=Math.ceil(filteredReports.length/PAGE_SIZE);
+  const pageBtns=Array.from({length:totalPages},(_,i)=>
+    `<button class="page-btn ${i+1===currentPage?'active':''}" onclick="gotoPage(${i+1})">${i+1}</button>`).join('');
+
+  document.getElementById('tableArea').innerHTML=`
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('site')">Site ↕</th>
+          <th onclick="sortBy('ticket')">Ticket ↕</th>
+          <th onclick="sortBy('tech')">Technician ↕</th>
+          <th onclick="sortBy('client')">Client ↕</th>
+          <th onclick="sortBy('date')">Date ↕</th>
+          <th>Rooms</th><th>Status</th><th>Access</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="page-row">
+      <span>Showing ${start+1}–${Math.min(end,filteredReports.length)} of ${filteredReports.length}</span>
+      <div class="page-btns">${pageBtns}</div>
+    </div>`;
+}
+
+let sortField=null, sortAsc=true;
+function sortBy(field){
+  if(sortField===field) sortAsc=!sortAsc; else{ sortField=field; sortAsc=true; }
+  filteredReports.sort((a,b)=>{
+    const av=a[field]||'', bv=b[field]||'';
+    return sortAsc?av.localeCompare(bv):bv.localeCompare(av);
+  });
+  renderTable();
+}
+
+function gotoPage(n){ currentPage=n; renderTable(); window.scrollTo(0,0); }
+
+// ════════════════════════════════════════════════════
+// REPORT DETAIL MODAL
+// ════════════════════════════════════════════════════
+async function openReport(id){
+  currentReportId=id;
+  currentReportData=allReports.find(r=>r.id===id);
+  if(!currentReportData) return;
+  const r=currentReportData;
+  document.getElementById('modalTitle').textContent=(r.site||'Unknown Site')+' — Report Detail';
+  // Meta
+  const metaFields=[['Ticket / Job #',r.ticket],['Site Name',r.site],['Client',r.client||'—'],
+    ['Address',r.addr||'—'],['Technician',r.tech||'—'],['Survey Date',r.date||'—'],
+    ['Saved By',r.userEmail||'—'],['Saved At',r.savedAtDate?.toLocaleString?.()||'—'],
+    ['Report ID',id],['Total Rooms',(r.idfs||[]).length]];
+  document.getElementById('modalMeta').innerHTML=metaFields.map(([k,v])=>`
+    <div class="meta-item"><label>${k}</label>${v||'—'}</div>`).join('');
+  // Access
+  renderEmailChips(r.allowedEmails||[]);
+  // IDF sections
+  const idfHtml=(r.idfs||[]).map(idf=>{
+    const portRows=Object.entries(idf.ports||{})
+      .filter(([k,p])=>p.fn&&p.fn!=='empty')
+      .sort((a,b)=>parseInt(a[0])-parseInt(b[0]))
+      .map(([k,p])=>`<tr><td>${k}</td><td>${p.pp||''}</td><td>${(p.fn||'').replace('resident','Resident').replace('ap','AP').replace('nonunit','Non-Unit').replace('uplink','Uplink').replace('unknown','Unknown')}</td><td>${p.unit||''}</td><td>${p.active?'✓':''}</td><td>${p.notes||''}</td></tr>`)
+      .join('');
+    return `<div class="idf-section">
+      <div class="idf-sec-head">${idf.name} (${idf.type}) — ${idf.switchModel||'No model'} · MAC: ${idf.switchMac||'—'}
+        <span style="float:right;font-size:.68rem;background:${idf.complete?'#27AE60':'#E67E22'};color:#fff;padding:1px 7px;border-radius:8px">${idf.complete?'Complete':'Incomplete'}</span>
+      </div>
+      <table class="idf-table"><thead><tr><th>Port</th><th>PP#</th><th>Function</th><th>Unit</th><th>Active</th><th>Notes</th></tr></thead>
+        <tbody>${portRows||'<tr><td colspan="6" style="text-align:center;color:#aaa;padding:8px">No ports mapped</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+  document.getElementById('modalIdfSections').innerHTML=idfHtml||'<p style="color:#aaa;font-size:.8rem">No IDF data</p>';
+  // Photos
+  const photosHtml=[];
+  (r.idfs||[]).forEach(idf=>{
+    if(idf.photos?.overview?.url) photosHtml.push(`<div style="text-align:center"><img class="photo-thumb" src="${idf.photos.overview.url}" alt="Overview" onclick="window.open(this.src)"><div style="font-size:.65rem;color:#7f8c8d;margin-top:2px">${idf.name}-overview</div></div>`);
+    if(idf.photos?.patchpanel?.url) photosHtml.push(`<div style="text-align:center"><img class="photo-thumb" src="${idf.photos.patchpanel.url}" alt="Patch Panel" onclick="window.open(this.src)"><div style="font-size:.65rem;color:#7f8c8d;margin-top:2px">${idf.name}-patchpanel</div></div>`);
+  });
+  if(r.siteMapUrl) photosHtml.unshift(`<div style="text-align:center"><img class="photo-thumb" src="${r.siteMapUrl}" alt="Site Map" style="width:160px;height:100px" onclick="window.open(this.src)"><div style="font-size:.65rem;color:#7f8c8d;margin-top:2px">Site Map</div></div>`);
+  document.getElementById('modalPhotos').innerHTML=photosHtml.join('')||'<p style="color:#aaa;font-size:.8rem">No photos stored in cloud</p>';
+
+  document.getElementById('reportModal').classList.add('open');
+}
+
+function closeModal(){ document.getElementById('reportModal').classList.remove('open'); currentReportId=null; }
+document.getElementById('reportModal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+
+// ════════════════════════════════════════════════════
+// ACCESS MANAGEMENT
+// ════════════════════════════════════════════════════
+function renderEmailChips(emails){
+  document.getElementById('emailChips').innerHTML=emails.map(email=>`
+    <span class="email-chip">${email}
+      <button onclick="removeEmailAccess('${email}')" title="Remove access">✕</button>
+    </span>`).join('')||'<span style="font-size:.78rem;color:#7f8c8d">No client access granted yet</span>';
+}
+
+async function addEmailAccess(){
+  const inp=document.getElementById('newEmailInput');
+  const email=inp.value.trim().toLowerCase();
+  if(!email||!email.includes('@')){ alert('Enter a valid email address.'); return; }
+  if(!currentReportId) return;
+  try{
+    await db.collection('reports').doc(currentReportId).update({
+      allowedEmails:firebase.firestore.FieldValue.arrayUnion(email)
+    });
+    currentReportData.allowedEmails=[...(currentReportData.allowedEmails||[]),email];
+    renderEmailChips(currentReportData.allowedEmails);
+    inp.value='';
+    // Update local cache
+    const idx=allReports.findIndex(r=>r.id===currentReportId);
+    if(idx>=0) allReports[idx].allowedEmails=currentReportData.allowedEmails;
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+async function removeEmailAccess(email){
+  if(!confirm(`Remove access for ${email}?`)||!currentReportId) return;
+  try{
+    await db.collection('reports').doc(currentReportId).update({
+      allowedEmails:firebase.firestore.FieldValue.arrayRemove(email)
+    });
+    currentReportData.allowedEmails=(currentReportData.allowedEmails||[]).filter(e=>e!==email);
+    renderEmailChips(currentReportData.allowedEmails);
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+async function manageAccess(id){
+  await openReport(id);
+  document.getElementById('newEmailInput').focus();
+}
+
+// ════════════════════════════════════════════════════
+// DELETE REPORT
+// ════════════════════════════════════════════════════
+async function deleteReport(){
+  if(!currentReportId) return;
+  const r=allReports.find(d=>d.id===currentReportId);
+  if(!confirm(`Permanently delete report for "${r?.site||currentReportId}"?\nThis cannot be undone.`)) return;
+  try{
+    await db.collection('reports').doc(currentReportId).delete();
+    allReports=allReports.filter(d=>d.id!==currentReportId);
+    closeModal(); updateStats(); filterReports();
+    alert('Report deleted.');
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+// ════════════════════════════════════════════════════
+// EXPORT CSV
+// ════════════════════════════════════════════════════
+function exportCSV(){
+  const headers=['ID','Site','Ticket','Client','Tech','Date','Rooms','Status','Saved At'];
+  const rows=filteredReports.map(r=>[
+    r.id,r.site||'',r.ticket||'',r.client||'',r.tech||'',r.date||'',
+    (r.idfs||[]).length,
+    (r.idfs||[]).every(i=>i.complete)?'Complete':'Incomplete',
+    r.savedAtDate?.toLocaleString?.()||''
+  ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv=[headers.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='PALTECH_Reports_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
