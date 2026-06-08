@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PALTECH — Portal Login</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;
+  background:linear-gradient(135deg,#00163E 0%,#023E8A 60%,#0A1628 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+
+/* ── CARD ── */
+.card{background:#fff;border-radius:20px;overflow:hidden;width:100%;max-width:900px;
+  box-shadow:0 32px 80px rgba(0,0,0,.45);display:grid;
+  grid-template-columns:1fr 1fr;min-height:560px}
+@media(max-width:680px){.card{grid-template-columns:1fr;max-width:420px}}
+
+/* ── LEFT PANEL ── */
+.left-panel{background:linear-gradient(160deg,#023E8A,#001D6E);color:#fff;
+  padding:40px 32px;display:flex;flex-direction:column;gap:28px}
+@media(max-width:680px){.left-panel{padding:28px 24px;gap:20px}}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:42px;height:42px;background:rgba(255,255,255,.15);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.brand-name{font-size:1.35rem;font-weight:800;letter-spacing:-.5px}
+.brand-sub{font-size:.7rem;opacity:.7;margin-top:1px;font-weight:400;letter-spacing:.5px;text-transform:uppercase}
+.left-tagline{font-size:1.05rem;font-weight:600;line-height:1.5;opacity:.9}
+.portal-list{display:flex;flex-direction:column;gap:10px;flex:1}
+.portal-card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
+  border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+  transition:background .15s;text-decoration:none;color:#fff}
+.portal-card:hover{background:rgba(255,255,255,.18)}
+.portal-card .icon{font-size:1.5rem;flex-shrink:0;margin-top:1px}
+.portal-card .label{font-size:.85rem;font-weight:700}
+.portal-card .desc{font-size:.72rem;opacity:.75;margin-top:2px;line-height:1.4}
+.left-footer{font-size:.65rem;opacity:.5;line-height:1.6;margin-top:auto}
+
+/* ── RIGHT PANEL ── */
+.right-panel{padding:40px 36px;display:flex;flex-direction:column;justify-content:center;gap:0}
+@media(max-width:680px){.right-panel{padding:28px 24px}}
+.form-title{font-size:1.4rem;font-weight:800;color:#0A1628;margin-bottom:4px}
+.form-sub{font-size:.82rem;color:#7f8c8d;margin-bottom:24px}
+
+/* ── FIELDS ── */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.72rem;font-weight:700;color:#596A7A;
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.field input{width:100%;padding:10px 13px;border:1.5px solid #D1D9E0;border-radius:9px;
+  font-size:13px;font-family:inherit;outline:none;transition:border-color .15s;background:#FAFBFC}
+.field input:focus{border-color:#005A9C;background:#fff}
+.pass-row{position:relative}
+.pass-row input{padding-right:40px}
+.eye-btn{position:absolute;right:11px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;font-size:14px;opacity:.45;padding:0}
+.eye-btn:hover{opacity:.9}
+
+/* ── BUTTONS ── */
+.btn-main{width:100%;padding:11px;background:#005A9C;color:#fff;border:none;border-radius:9px;
+  font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:8px;transition:background .15s;margin-top:6px;font-family:inherit}
+.btn-main:hover{background:#004a80}
+.btn-main:disabled{opacity:.5;cursor:not-allowed}
+.divider{display:flex;align-items:center;gap:12px;color:#bbb;font-size:.75rem;margin:16px 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#E8ECF0}
+.btn-google{width:100%;padding:10px;border:1.5px solid #D1D9E0;border-radius:9px;
+  background:#fff;font-size:13px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:inherit;transition:all .15s;color:#2C3E50}
+.btn-google:hover{border-color:#999;background:#F8FAFC}
+.form-links{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:14px}
+.form-link{background:none;border:none;font-size:.75rem;color:#7f8c8d;cursor:pointer;
+  text-decoration:underline;font-family:inherit;padding:0}
+.form-link:hover{color:#005A9C}
+
+/* ── STATUS / ERROR ── */
+.status-box{padding:10px 13px;border-radius:8px;font-size:.78rem;margin-top:14px;
+  display:none;line-height:1.5;font-weight:500}
+.status-box.err{background:#FFF3F3;color:#C0392B;border:1px solid #F5C6CB;display:block}
+.status-box.ok{background:#F0FFF4;color:#1A7A40;border:1px solid #C3E6CB;display:block}
+.status-box.info{background:#EBF5FB;color:#005A9C;border:1px solid #BDE0F5;display:block}
+.status-box.warn{background:#FFFBEF;color:#856404;border:1px solid #FFE69C;display:block}
+
+/* ── LOADING STATE ── */
+.loading-state{display:none;text-align:center;padding:20px 0}
+.loading-state.show{display:block}
+.spinner{display:inline-block;width:32px;height:32px;border:3px solid #D1D9E0;
+  border-top-color:#005A9C;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-state p{font-size:.88rem;color:#596A7A;margin-top:10px}
+
+/* ── WELCOME STATE ── */
+.welcome-state{display:none;padding:8px 0}
+.welcome-state.show{display:block}
+.welcome-avatar{width:52px;height:52px;border-radius:50%;background:#005A9C;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;margin:0 auto 12px}
+.welcome-name{text-align:center;font-size:1.1rem;font-weight:700;color:#0A1628;margin-bottom:4px}
+.welcome-role{text-align:center;font-size:.75rem;color:#7f8c8d;margin-bottom:20px}
+.portal-links{display:flex;flex-direction:column;gap:8px}
+.portal-link{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;
+  border:1.5px solid #D1D9E0;background:#FAFBFC;cursor:pointer;text-decoration:none;
+  color:#2C3E50;font-size:.88rem;font-weight:600;transition:all .15s}
+.portal-link:hover{border-color:#005A9C;background:#EBF5FB;color:#005A9C}
+.portal-link .p-icon{font-size:1.2rem;flex-shrink:0}
+.portal-link .p-label{flex:1}
+.portal-link .p-arrow{color:#bbb;font-size:.8rem}
+.welcome-signout{background:none;border:1px solid #D1D9E0;border-radius:8px;padding:8px 16px;
+  color:#7f8c8d;font-size:.78rem;cursor:pointer;margin-top:16px;width:100%;
+  font-family:inherit;transition:all .15s}
+.welcome-signout:hover{border-color:#E74C3C;color:#E74C3C}
+
+/* ── MFA / VERIFY NOTICE ── */
+.verify-notice{background:#FFFBEF;border:1px solid #FFE69C;border-radius:8px;
+  padding:10px 13px;font-size:.76rem;color:#856404;margin-top:12px;line-height:1.5}
+.verify-notice button{background:#E67E22;color:#fff;border:none;border-radius:6px;
+  padding:4px 10px;font-size:.72rem;cursor:pointer;margin-left:8px;font-family:inherit}
+
+/* ── ROLE BADGE ── */
+.role-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;
+  font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.role-admin{background:#FFE0E0;color:#A00000}
+.role-power{background:#FFF3D0;color:#A07000}
+.role-client{background:#D0F0E0;color:#1A7A40}
+
+/* ── FOOTER ── */
+.page-footer{margin-top:20px;font-size:.68rem;color:rgba(255,255,255,.35);text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="brand">
+      <div class="brand-icon">🔧</div>
+      <div>
+        <div class="brand-name">PALTECH</div>
+        <div class="brand-sub">Port Mapping Portal</div>
+      </div>
+    </div>
+
+    <p class="left-tagline">Network survey management for field technicians, administrators, and clients.</p>
+
+    <div class="portal-list">
+      <a class="portal-card" href="admin.html">
+        <span class="icon">📂</span>
+        <div>
+          <div class="label">Admin Portal</div>
+          <div class="desc">Manage all survey reports, users, and access permissions</div>
+        </div>
+      </a>
+      <a class="portal-card" href="wizard.html">
+        <span class="icon">🔧</span>
+        <div>
+          <div class="label">Field Wizard</div>
+          <div class="desc">Create and submit port mapping surveys from the field</div>
+        </div>
+      </a>
+      <a class="portal-card" href="client.html">
+        <span class="icon">📋</span>
+        <div>
+          <div class="label">Client Portal</div>
+          <div class="desc">View and download your network survey reports</div>
+        </div>
+      </a>
+    </div>
+
+    <div class="left-footer">
+      NOC: 803-310-6959 &nbsp;|&nbsp; Dispatch: 803-978-6171<br>
+      © 2025 PALTECH LLC — All rights reserved
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- LOGIN FORM (default state) -->
+    <div id="formState">
+      <div class="form-title">Welcome back</div>
+      <div class="form-sub">Sign in to access your portal</div>
+
+      <div class="field">
+        <label>Email Address</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email"
+          onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pass-row">
+          <input id="loginPass" type="password" placeholder="Your password" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')doSignIn()">
+          <button type="button" class="eye-btn" onclick="toggleEye(this,'loginPass')">👁</button>
+        </div>
+      </div>
+
+      <button class="btn-main" id="signInBtn" onclick="doSignIn()">🔐 Sign In</button>
+
+      <div class="divider">or</div>
+
+      <button class="btn-google" onclick="doGoogleSignIn()">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="form-links">
+        <button class="form-link" onclick="showForgotForm()">Forgot password?</button>
+        <button class="form-link" onclick="contactAdmin()">Need access? Contact admin</button>
+      </div>
+
+      <div class="status-box" id="loginStatus"></div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="forgotState" style="display:none">
+      <div class="form-title">Reset Password</div>
+      <div class="form-sub">Enter your email and we'll send a reset link</div>
+      <div class="field">
+        <label>Email Address</label>
+        <input id="forgotEmail" type="email" placeholder="you@example.com"
+          onkeydown="if(event.key==='Enter')doForgot()">
+      </div>
+      <button class="btn-main" onclick="doForgot()">📧 Send Reset Email</button>
+      <button class="form-link" style="display:block;margin-top:14px" onclick="showLoginForm()">← Back to Sign In</button>
+      <div class="status-box" id="forgotStatus"></div>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div class="loading-state" id="loadingState">
+      <div class="spinner"></div>
+      <p id="loadingMsg">Checking access…</p>
+    </div>
+
+    <!-- WELCOME / PORTAL SELECTOR -->
+    <div class="welcome-state" id="welcomeState">
+      <div class="welcome-avatar" id="welcomeAvatar">?</div>
+      <div class="welcome-name" id="welcomeName"></div>
+      <div class="welcome-role" id="welcomeRole"></div>
+      <div id="verifyNotice" style="display:none" class="verify-notice">
+        ⚠ Your email address is not yet verified.
+        <button onclick="sendVerificationEmail()">Send Verification Email</button>
+      </div>
+      <div class="portal-links" id="portalLinks"></div>
+      <button class="welcome-signout" onclick="doSignOut()">Sign Out</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="page-footer">
+  Secure sign-in powered by Firebase Authentication &nbsp;·&nbsp;
+  <span style="opacity:.6">MFA & advanced security available on request</span>
+</div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC5hauabRSRNg-qsSU_Le7Y541kGiKDv5Q",
+  authDomain: "port-mapper-609b8.firebaseapp.com",
+  projectId: "port-mapper-609b8",
+  storageBucket: "port-mapper-609b8.firebasestorage.app",
+  messagingSenderId: "30294256994",
+  appId: "1:30294256994:web:a50b5f971d1a1a79c7903b"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth(), db = firebase.firestore();
+
+// ── Read ?next= redirect param ──
+const urlNext = new URLSearchParams(window.location.search).get('next') || '';
+const urlError = new URLSearchParams(window.location.search).get('error') || '';
+
+// ── Auth state ──
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    showLoginForm();
+    if (urlError === 'deactivated') showStatus('loginStatus', 'err', '⛔ Your account has been deactivated. Contact your administrator.');
+    else if (urlError === 'noaccess') showStatus('loginStatus', 'err', '⛔ Your account does not have portal access. Contact your administrator.');
+    return;
+  }
+  showLoading('Checking access…');
+  await handleSignedInUser(user);
+});
+
+// ── Handle signed-in user ──
+async function handleSignedInUser(user) {
+  try {
+    const [profileSnap, adminSnap] = await Promise.all([
+      db.collection('users').doc(user.uid).get(),
+      db.collection('admins').doc(user.uid).get()
+    ]);
+
+    // Check for deactivated account
+    if (profileSnap.exists && profileSnap.data().active === false) {
+      await auth.signOut();
+      showLoginForm();
+      showStatus('loginStatus', 'err', '⛔ Your account has been deactivated. Please contact your administrator.');
+      return;
+    }
+
+    // Determine role
+    let role = null;
+    let displayName = user.displayName || user.email;
+    let company = '';
+
+    if (profileSnap.exists) {
+      const p = profileSnap.data();
+      role = p.role || 'client';
+      displayName = p.displayName || displayName;
+      company = p.company || '';
+    } else if (adminSnap.exists) {
+      role = 'admin'; // legacy Google admin
+    } else {
+      // Not registered in any collection
+      await auth.signOut();
+      showLoginForm();
+      showStatus('loginStatus', 'err', '⛔ No portal access found for this account. Contact your administrator to get access.');
+      return;
+    }
+
+    // Check email verification (non-blocking — just warn)
+    const needsVerify = !user.emailVerified &&
+      user.providerData[0]?.providerId === 'password';
+
+    // If ?next= was set and the user's role can access it, redirect immediately
+    if (urlNext) {
+      const safe = urlNext.replace(/^[./]+/, '');
+      if (safe && canAccessPage(role, safe)) {
+        window.location.href = safe;
+        return;
+      }
+    }
+
+    // Show welcome / portal picker
+    showWelcome(user, displayName, role, company, needsVerify);
+
+  } catch(e) {
+    showLoginForm();
+    showStatus('loginStatus', 'err', 'Error checking access: ' + e.message);
+  }
+}
+
+// ── Can this role access a given page? ──
+function canAccessPage(role, page) {
+  const p = page.toLowerCase();
+  if (role === 'admin' || role === 'superadmin') return true;
+  if (role === 'power_user') return p !== 'admin.html' && p !== 'users.html';
+  return p === 'client.html'; // client
+}
+
+// ── Auto-redirect based on role ──
+function defaultPageForRole(role) {
+  if (role === 'admin' || role === 'superadmin') return 'admin.html';
+  if (role === 'power_user') return 'wizard.html';
+  return 'client.html';
+}
+
+// ── Portal links per role ──
+function portalLinksForRole(role) {
+  const all = [
+    { href:'admin.html',  icon:'📂', label:'Admin Portal',  desc:'Reports, users & settings',  roles:['admin','superadmin'] },
+    { href:'users.html',  icon:'👥', label:'User Management', desc:'Create & manage user accounts', roles:['admin','superadmin'] },
+    { href:'wizard.html', icon:'🔧', label:'Field Wizard',   desc:'Create port mapping surveys', roles:['admin','superadmin','power_user'] },
+    { href:'client.html', icon:'📋', label:'Client Portal',  desc:'View reports shared with you', roles:['admin','superadmin','power_user','client'] }
+  ];
+  return all.filter(p => p.roles.includes(role));
+}
+
+// ── Show welcome screen ──
+function showWelcome(user, name, role, company, needsVerify) {
+  document.getElementById('formState').style.display    = 'none';
+  document.getElementById('forgotState').style.display  = 'none';
+  document.getElementById('loadingState').classList.remove('show');
+
+  const initial = (name || '?')[0].toUpperCase();
+  document.getElementById('welcomeAvatar').textContent = initial;
+  document.getElementById('welcomeName').textContent   = name;
+
+  const roleLabels = {
+    'admin':'🔴 Administrator','superadmin':'🔴 Super Admin',
+    'power_user':'🟠 Power User','client':'🟢 Client'
+  };
+  const sub = [roleLabels[role] || '🟢 User', company].filter(Boolean).join(' · ');
+  document.getElementById('welcomeRole').textContent = sub;
+
+  // Email verification notice
+  if (needsVerify) {
+    document.getElementById('verifyNotice').style.display = 'block';
+  }
+
+  // Portal links
+  const links = portalLinksForRole(role);
+  document.getElementById('portalLinks').innerHTML = links.map(l =>
+    `<a class="portal-link" href="${l.href}">
+      <span class="p-icon">${l.icon}</span>
+      <div class="p-label"><strong>${l.label}</strong><div style="font-size:.72rem;color:#7f8c8d;font-weight:400">${l.desc}</div></div>
+      <span class="p-arrow">›</span>
+    </a>`
+  ).join('');
+
+  document.getElementById('welcomeState').classList.add('show');
+
+  // Auto-navigate to default page after 1.5s (unless this is a role with multiple options)
+  if (links.length === 1) {
+    setTimeout(() => window.location.href = links[0].href, 1200);
+  }
+}
+
+// ── Sign in with email/password ──
+async function doSignIn() {
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  const pass  = document.getElementById('loginPass').value || '';
+  clearStatus('loginStatus');
+  if (!email || !pass) { showStatus('loginStatus','err','Enter your email and password.'); return; }
+  const btn = document.getElementById('signInBtn');
+  btn.disabled = true; btn.textContent = '⏳ Signing in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged fires → handleSignedInUser
+  } catch(e) {
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
+      showStatus('loginStatus','err','Incorrect email or password. Please try again.');
+    else if (e.code === 'auth/user-disabled')
+      showStatus('loginStatus','err','This account has been disabled by an administrator.');
+    else if (e.code === 'auth/too-many-requests')
+      showStatus('loginStatus','warn','Too many failed attempts. Please wait a few minutes and try again.');
+    else
+      showStatus('loginStatus','err','Sign-in error: ' + e.message);
+    btn.disabled = false; btn.textContent = '🔐 Sign In';
+  }
+}
+
+// ── Google Sign-in ──
+async function doGoogleSignIn() {
+  clearStatus('loginStatus');
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    // onAuthStateChanged fires → handleSignedInUser
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user')
+      showStatus('loginStatus','err','Google sign-in failed: ' + e.message);
+  }
+}
+
+// ── Forgot password ──
+async function doForgot() {
+  const email = (document.getElementById('forgotEmail').value || '').trim();
+  clearStatus('forgotStatus');
+  if (!email) { showStatus('forgotStatus','err','Enter your email address.'); return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showStatus('forgotStatus','ok','✅ Password reset email sent to ' + email + '. Check your inbox and spam folder.');
+  } catch(e) {
+    if (e.code === 'auth/user-not-found')
+      showStatus('forgotStatus','err','No account found with that email address.');
+    else
+      showStatus('forgotStatus','err','Error: ' + e.message);
+  }
+}
+
+// ── Email verification ──
+async function sendVerificationEmail() {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await user.sendEmailVerification();
+    document.getElementById('verifyNotice').innerHTML =
+      '✅ Verification email sent to ' + user.email + '. Check your inbox and click the link.';
+  } catch(e) {
+    alert('Error sending verification email: ' + e.message);
+  }
+}
+
+// ── Sign out ──
+async function doSignOut() {
+  await auth.signOut();
+  window.location.reload();
+}
+
+// ── Contact admin notice ──
+function contactAdmin() {
+  showStatus('loginStatus','info',
+    '💬 To request access, contact your PALTECH administrator. They can create an account for you from the User Management portal.');
+}
+
+// ── UI helpers ──
+function showLoading(msg) {
+  document.getElementById('formState').style.display    = 'none';
+  document.getElementById('forgotState').style.display  = 'none';
+  document.getElementById('welcomeState').classList.remove('show');
+  const ls = document.getElementById('loadingState');
+  ls.classList.add('show');
+  document.getElementById('loadingMsg').textContent = msg || 'Loading…';
+}
+
+function showLoginForm() {
+  document.getElementById('formState').style.display    = '';
+  document.getElementById('forgotState').style.display  = 'none';
+  document.getElementById('welcomeState').classList.remove('show');
+  document.getElementById('loadingState').classList.remove('show');
+  const btn = document.getElementById('signInBtn');
+  btn.disabled = false; btn.textContent = '🔐 Sign In';
+}
+
+function showForgotForm() {
+  document.getElementById('formState').style.display   = 'none';
+  document.getElementById('forgotState').style.display = '';
+  const fe = document.getElementById('forgotEmail');
+  fe.value = document.getElementById('loginEmail').value || '';
+  fe.focus();
+}
+
+function showStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'status-box ' + type;
+  el.textContent = msg;
+}
+function clearStatus(id) {
+  const el = document.getElementById(id);
+  el.className = 'status-box';
+  el.textContent = '';
+}
+
+function toggleEye(btn, fieldId) {
+  const inp = document.getElementById(fieldId);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🔒'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+</script>
+</body>
+</html>
