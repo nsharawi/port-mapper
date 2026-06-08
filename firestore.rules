@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────────
+
+    // True if the requesting user has a document in the admins collection.
+    // Note: get() / exists() calls inside rule expressions bypass security
+    // rules themselves, so this never causes circular evaluation.
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // True if the user has an active record in the users collection
+    // with the specified role.
+    function hasRole(role) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    // True if the user has an active profile (any role).
+    function isActiveUser() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // users collection
+    //   • Any authenticated user can read their OWN document — required
+    //     by login.html to determine their role on sign-in.
+    //   • Admins can read and write ALL user documents (user management).
+    // ─────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:  if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // admins collection
+    //   • Any authenticated user can check their OWN admin document —
+    //     required by login.html and admin.html to verify admin status.
+    //   • Admins can read and write ALL admin records.
+    // ─────────────────────────────────────────────────────────────
+    match /admins/{uid} {
+      allow read:  if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // reports collection
+    //   • Admins:       full read/write.
+    //   • Power users:  full read/write (they create and manage surveys).
+    //   • Clients:      read-only for reports where clientEmail matches
+    //                   their verified email address.
+    //   • Deleted reports (deleted == true) are invisible to clients.
+    // ─────────────────────────────────────────────────────────────
+    match /reports/{reportId} {
+      allow read, write: if isAdmin();
+      allow read, write: if hasRole('power_user');
+      allow read: if isActiveUser() &&
+        !resource.data.get('deleted', false) &&
+        resource.data.clientEmail == request.auth.token.email;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // clients collection  (legacy — keyed by email)
+    //   • Admins:  full access.
+    //   • A client can read their own entry (keyed by their email).
+    // ─────────────────────────────────────────────────────────────
+    match /clients/{docId} {
+      allow read, write: if isAdmin();
+      allow read: if request.auth != null &&
+        request.auth.token.email == docId;
+    }
+
+  }
+}

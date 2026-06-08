@@ -285,13 +285,32 @@ auth.onAuthStateChanged(async user => {
 // ── Handle signed-in user ──
 async function handleSignedInUser(user) {
   try {
-    const [profileSnap, adminSnap] = await Promise.all([
-      db.collection('users').doc(user.uid).get(),
-      db.collection('admins').doc(user.uid).get()
-    ]);
+    // Read each collection independently so a Firestore rules denial on one
+    // never blocks resolution via the other.  Treat permission-denied as "not found".
+    let profileSnap = null, adminSnap = null;
+    try {
+      profileSnap = await db.collection('users').doc(user.uid).get();
+    } catch(e) {
+      if (e.code !== 'permission-denied') throw e; // re-throw unexpected errors
+    }
+    try {
+      adminSnap = await db.collection('admins').doc(user.uid).get();
+    } catch(e) {
+      if (e.code !== 'permission-denied') throw e;
+    }
+
+    // Both reads were denied → Firestore rules not yet configured
+    if (!profileSnap && !adminSnap) {
+      await auth.signOut();
+      showLoginForm();
+      showStatus('loginStatus', 'err',
+        '⚠️ Firestore access rules need updating. ' +
+        'Please ask your administrator to configure the database security rules.');
+      return;
+    }
 
     // Check for deactivated account
-    if (profileSnap.exists && profileSnap.data().active === false) {
+    if (profileSnap && profileSnap.exists && profileSnap.data().active === false) {
       await auth.signOut();
       showLoginForm();
       showStatus('loginStatus', 'err', '⛔ Your account has been deactivated. Please contact your administrator.');
@@ -303,13 +322,13 @@ async function handleSignedInUser(user) {
     let displayName = user.displayName || user.email;
     let company = '';
 
-    if (profileSnap.exists) {
+    if (profileSnap && profileSnap.exists) {
       const p = profileSnap.data();
       role = p.role || 'client';
       displayName = p.displayName || displayName;
       company = p.company || '';
-    } else if (adminSnap.exists) {
-      role = 'admin'; // legacy Google admin
+    } else if (adminSnap && adminSnap.exists) {
+      role = 'admin'; // legacy Google admin (no users/ doc yet)
     } else {
       // Not registered in any collection
       await auth.signOut();

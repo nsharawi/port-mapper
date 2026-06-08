@@ -283,9 +283,20 @@ let isAdmin=false;
 
 auth.onAuthStateChanged(async user=>{
   if(!user){ document.getElementById('loginScreen').style.display='flex'; return; }
-  // Check admin status
-  const adminDoc=await db.collection('admins').doc(user.uid).get();
-  if(!adminDoc.exists){ document.getElementById('accessErr').style.display='block'; auth.signOut(); return; }
+  // Check admin status — catch permission-denied gracefully
+  let adminDoc = null;
+  try {
+    adminDoc = await db.collection('admins').doc(user.uid).get();
+  } catch(e) {
+    if(e.code === 'permission-denied'){
+      // Rules not yet configured — show a specific message
+      const err = document.getElementById('accessErr');
+      if(err){ err.textContent = '⚠️ Database rules need updating. Contact your system administrator.'; err.style.display='block'; }
+      auth.signOut(); return;
+    }
+    throw e;
+  }
+  if(!adminDoc || !adminDoc.exists){ document.getElementById('accessErr').style.display='block'; auth.signOut(); return; }
   isAdmin=true;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('adminEmail').textContent=user.displayName||user.email;
