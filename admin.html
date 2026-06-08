@@ -396,14 +396,7 @@ async function openReport(id){
     ['Saved By',r.userEmail||'—'],['Saved At',r.savedAtDate?.toLocaleString?.()||'—'],
     ['Report ID',id],['Total Rooms',(r.idfs||[]).length]];
   document.getElementById('modalMeta').innerHTML=metaFields.map(([k,v])=>`
-    <div class="meta-item"><label>${k}</label>${v||'—'}</div>`).join('')
-    +(r.excelUrl?`<div class="meta-item" style="grid-column:1/-1">
-      <label>Excel Report</label>
-      <a href="${r.excelUrl}" target="_blank" download
-         style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#1D6F42;color:#fff;border-radius:6px;font-size:.75rem;font-weight:700;text-decoration:none">
-        📊 Download Excel
-      </a>
-    </div>`:'');
+    <div class="meta-item"><label>${k}</label>${v||'—'}</div>`).join('');
   // Access
   renderEmailChips(r.allowedEmails||[]);
   // Site grant info — count reports for this site
