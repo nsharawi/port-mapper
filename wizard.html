@@ -133,6 +133,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--pr);background:#fff;o
 .photo-preview{width:100%;max-height:180px;object-fit:contain;border-radius:7px;margin:8px 0;display:none}
 .photo-fn{font-size:.68rem;color:var(--ac);font-weight:600;margin-top:3px}
 
+/* ADDRESS AUTOCOMPLETE */
+.addr-wrap{position:relative}
+.addr-drop{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bd);border-radius:0 0 8px 8px;box-shadow:0 6px 20px rgba(0,0,0,.12);z-index:400;display:none;max-height:240px;overflow-y:auto}
+.ac-item{padding:8px 11px;cursor:pointer;border-bottom:1px solid #F4F6F8;transition:background .1s}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.focused{background:#EBF3FF}
+.ac-main{font-size:.82rem;font-weight:600;color:var(--tx)}
+.ac-sub{font-size:.72rem;color:#7f8c8d;margin-top:1px}
+.gps-status{font-size:.7rem;color:var(--ac);margin-top:3px;display:none}
+
 /* CAMERA / SCAN MODAL */
 #camModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:1000;flex-direction:column;align-items:center;justify-content:center;padding:14px}
 #camModal.open{display:flex}
@@ -271,10 +281,14 @@ hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
       <div class="fg"><label>Technician Name <span class="req">*</span></label><input type="text" id="techName" placeholder="Your full name"></div>
       <div class="fg">
         <label>Site Address</label>
-        <div class="input-row">
-          <input type="text" id="siteAddr" placeholder="123 Main St, Columbia SC">
-          <button class="btn btn-gh btn-icon" onclick="fetchGpsAddress()" title="Get GPS address">📍</button>
+        <div class="addr-wrap">
+          <div class="input-row">
+            <input type="text" id="siteAddr" placeholder="123 Main St, Columbia SC" autocomplete="off">
+            <button class="btn btn-gh btn-icon" id="gpsBtn" onclick="fetchGpsAddress()" title="Refresh GPS address">📍</button>
+          </div>
+          <div class="addr-drop" id="addrDrop"></div>
         </div>
+        <div class="gps-status" id="gpsStatus">📍 Getting GPS location…</div>
       </div>
     </div>
   </div>
@@ -580,7 +594,7 @@ const FIREBASE_CONFIG = {
     }
   }
 */
-const FB_READY = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+const FB_READY = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY");
 let db=null, fbStorage=null, fbAuth=null, currentUser=null;
 
 if (FB_READY) {
@@ -660,11 +674,13 @@ function fnOptions(cur){ return Object.entries(FN_OPT).map(([k,v])=>`<option val
 // ════════════════════════════════════════════════════
 const STEPS=[{n:1,l:'Instructions'},{n:2,l:'Job Setup'},{n:3,l:'Site Map'},{n:4,l:'Dashboard'},{n:5,l:'IDF Detail'},{n:6,l:'Export'}];
 
+let gpsAutoFired=false;
 function goPage(n){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page'+n).classList.add('active');
   state.currentPage=n;
   renderStepBar(); updateFootNav(); window.scrollTo(0,0);
+  if(n===2 && !gpsAutoFired){ gpsAutoFired=true; autoFetchGps(); }
   if(n===4) renderDashboard();
   if(n===6) renderReview();
 }
@@ -738,21 +754,51 @@ function toggleKb(){
   inp.focus();
 }
 
+// Called silently when page 2 first loads — no alert on deny
+function autoFetchGps(){
+  if(!navigator.geolocation) return;
+  const inp=document.getElementById('siteAddr');
+  const status=document.getElementById('gpsStatus');
+  if(inp.value.trim()) return; // already filled
+  status.style.display='block';
+  navigator.geolocation.getCurrentPosition(
+    async pos=>{
+      try{
+        const {latitude:lat,longitude:lng}=pos.coords;
+        const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const d=await r.json();
+        const a=d.address||{};
+        const parts=[a.house_number,a.road,a.city||a.town||a.village,a.state,a.postcode].filter(Boolean);
+        if(!inp.value.trim()) inp.value=parts.join(', ');
+      }catch{}
+      status.style.display='none';
+    },
+    ()=>{ status.style.display='none'; },  // silent on deny
+    {timeout:12000, maximumAge:60000}
+  );
+}
+
+// Manual refresh button
 async function fetchGpsAddress(){
   if(!navigator.geolocation){ alert('GPS not available on this device.'); return; }
-  const btn=document.querySelector('[onclick="fetchGpsAddress()"]');
-  btn.textContent='⏳'; btn.disabled=true;
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    try{
-      const {latitude:lat,longitude:lng}=pos.coords;
-      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-      const d=await r.json();
-      const a=d.address||{};
-      const parts=[a.house_number,a.road,a.city||a.town||a.village,a.state,a.postcode].filter(Boolean);
-      document.getElementById('siteAddr').value=parts.join(', ');
-    }catch(e){ alert('Could not fetch address: '+e.message); }
-    btn.textContent='📍'; btn.disabled=false;
-  }, err=>{ alert('GPS error: '+err.message); btn.textContent='📍'; btn.disabled=false; });
+  const btn=document.getElementById('gpsBtn');
+  const status=document.getElementById('gpsStatus');
+  btn.textContent='⏳'; btn.disabled=true; status.style.display='block';
+  navigator.geolocation.getCurrentPosition(
+    async pos=>{
+      try{
+        const {latitude:lat,longitude:lng}=pos.coords;
+        const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const d=await r.json();
+        const a=d.address||{};
+        const parts=[a.house_number,a.road,a.city||a.town||a.village,a.state,a.postcode].filter(Boolean);
+        document.getElementById('siteAddr').value=parts.join(', ');
+      }catch(e){ alert('Could not fetch address: '+e.message); }
+      btn.textContent='📍'; btn.disabled=false; status.style.display='none';
+    },
+    err=>{ alert('GPS error: '+err.message); btn.textContent='📍'; btn.disabled=false; status.style.display='none'; },
+    {timeout:12000}
+  );
 }
 
 function chkJobSetup(){
@@ -825,6 +871,18 @@ document.getElementById('mapImg').addEventListener('click',function(e){
   const rect=this.getBoundingClientRect();
   const x=((e.clientX-rect.left)/rect.width)*100;
   const y=((e.clientY-rect.top)/rect.height)*100;
+
+  // One pin per IDF — move existing pin if one already exists
+  const existing=state.mapPins.find(p=>p.idfId===idfId);
+  if(existing){
+    existing.x=x; existing.y=y;
+    const el=document.getElementById('mp_'+existing.id);
+    if(el){ el.style.left=x+'%'; el.style.top=y+'%'; }
+    renderMapLegend();
+    return;
+  }
+
+  // New pin — assign the next sequential number
   state.pinCounter++;
   const pin={id:'p'+Date.now(),idfId,pinNum:state.pinCounter,x,y};
   state.mapPins.push(pin);
@@ -861,7 +919,7 @@ function renderMapPin(pin){
 function renderMapLegend(){
   const strip=document.getElementById('mapLegend');
   const items=document.getElementById('legItems');
-  if(!state.mapPins.length){ strip.style.display='none'; return; }
+  if(!state.mapPins.length){ strip.style.display='none'; refreshPinSel(); return; }
   strip.style.display='block';
   items.innerHTML=state.mapPins.map(pin=>{
     const idf=state.idfs.find(i=>i.id===pin.idfId);
@@ -869,6 +927,7 @@ function renderMapLegend(){
     return `<div class="leg-item"><div class="leg-num" style="background:${col}">${pin.pinNum}</div>${idf?.name||'?'}</div>`;
   }).join('');
   document.getElementById('pinCount').textContent=state.mapPins.length+' pin'+(state.mapPins.length!==1?'s':'');
+  refreshPinSel(); // keep dropdown in sync
 }
 
 function pinDragStart(e){
@@ -898,13 +957,19 @@ function pinDragEnd(){
   }
   document.removeEventListener('mousemove',pinDrag); document.removeEventListener('touchmove',pinDrag);
   document.removeEventListener('mouseup',pinDragEnd); document.removeEventListener('touchend',pinDragEnd);
-  setTimeout(()=>{mapDragging=false;mapDragEl=null;mapDragId=null;},50);
+  setTimeout(()=>{
+    mapDragging=false; mapDragEl=null; mapDragId=null;
+    refreshPinSel(); // keep dropdown labels in sync after drag
+  },50);
 }
 
 function refreshPinSel(){
   const sel=document.getElementById('pinIdfSel');
-  sel.innerHTML='<option value="">-- Select room --</option>'+
-    state.idfs.map(i=>`<option value="${i.id}">${i.name} (${i.type})</option>`).join('');
+  sel.innerHTML='<option value="">-- Select room to place pin --</option>'+
+    state.idfs.map(i=>{
+      const hasPIn=state.mapPins.some(p=>p.idfId===i.id);
+      return `<option value="${i.id}">${hasPIn?'📍 ':'○ '}${i.name} (${i.type})${hasPIn?' — tap to move':''}</option>`;
+    }).join('');
 }
 
 // ════════════════════════════════════════════════════
@@ -1233,37 +1298,83 @@ function closeCamera(){
 // ════════════════════════════════════════════════════
 async function startScan(fieldId){
   scanMode=true; scanTargetField=fieldId;
-  document.getElementById('camLabel').textContent='📷 Point at barcode or QR code · Auto-detecting…';
+  document.getElementById('camLabel').textContent='📷 Hold barcode / QR code steady in view…';
   document.getElementById('camPreview').style.display='none';
   document.getElementById('camVideo').style.display='block';
   document.getElementById('shutterBtn').style.display='none';
   document.getElementById('acceptBtn').style.display='none';
   document.getElementById('retakeBtn').style.display='none';
   document.getElementById('scanBox').style.display='block';
-  document.getElementById('scanStatus').textContent='Scanning…';
-  if(!navigator.mediaDevices?.getUserMedia){ alert('Camera not available.'); return; }
+  document.getElementById('scanStatus').textContent='⏳ Starting camera…';
+
+  if(!navigator.mediaDevices?.getUserMedia){
+    alert('Camera not available. Please type the value manually.'); return;
+  }
   try{
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+    camStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+    });
     const video=document.getElementById('camVideo');
     video.srcObject=camStream;
-    await video.play();
     document.getElementById('camModal').classList.add('open');
+
+    // Wait for the video to have real frame data (dimensions > 0)
+    await new Promise(resolve=>{
+      const check=()=>{ if(video.videoWidth>0&&video.videoHeight>0){ resolve(); } else { requestAnimationFrame(check); } };
+      video.addEventListener('loadeddata',()=>requestAnimationFrame(check),{once:true});
+      video.play().then(()=>requestAnimationFrame(check)).catch(()=>{});
+      setTimeout(resolve,5000); // safety fallback
+    });
+
+    document.getElementById('scanStatus').textContent='🔍 Scanning… point at label/barcode';
+
+    // Build detector — check supported formats to avoid constructor errors
+    let detector=null;
     if('BarcodeDetector' in window){
-      const det=new BarcodeDetector({formats:['qr_code','code_128','code_39','ean_13','data_matrix','codabar']});
-      scanInterval=setInterval(async()=>{
-        try{ const barcodes=await det.detect(video); if(barcodes.length) fillScan(barcodes[0].rawValue); }catch{}
-      },250);
-    } else {
-      const canvas=document.getElementById('camCanvas');
-      scanInterval=setInterval(()=>{
-        canvas.width=video.videoWidth||640; canvas.height=video.videoHeight||480;
-        const ctx=canvas.getContext('2d'); ctx.drawImage(video,0,0);
-        const img=ctx.getImageData(0,0,canvas.width,canvas.height);
-        const code=jsQR(img.data,img.width,img.height);
-        if(code) fillScan(code.data);
-      },250);
+      try{
+        const supported=await BarcodeDetector.getSupportedFormats();
+        const wanted=['qr_code','code_128','code_39','data_matrix','pdf417','aztec'];
+        const usable=wanted.filter(f=>supported.includes(f));
+        if(usable.length) detector=new BarcodeDetector({formats:usable});
+      }catch(e){ detector=null; }
     }
-  }catch(e){ alert('Camera error: '+e.message); }
+
+    const canvas=document.getElementById('camCanvas');
+    let found=false;
+
+    scanInterval=setInterval(async()=>{
+      if(found) return;
+      const v=document.getElementById('camVideo');
+      if(!v.videoWidth||!v.videoHeight) return; // frame not ready yet
+
+      try{
+        if(detector){
+          const codes=await detector.detect(v);
+          if(codes.length){ found=true; fillScan(codes[0].rawValue); return; }
+        }
+        // jsQR fallback (QR codes only)
+        if(typeof jsQR!=='undefined'){
+          canvas.width=v.videoWidth; canvas.height=v.videoHeight;
+          const ctx=canvas.getContext('2d');
+          ctx.drawImage(v,0,0);
+          const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+          const code=jsQR(imgData.data,imgData.width,imgData.height,{inversionAttempts:'dontInvert'});
+          if(code&&code.data){ found=true; fillScan(code.data); }
+        }
+      }catch(e){ /* ignore per-frame errors */ }
+    },300);
+
+    // Timeout hint after 20 s
+    setTimeout(()=>{
+      if(!found&&scanInterval){
+        document.getElementById('scanStatus').textContent='Still scanning… or type value manually and close';
+      }
+    },20000);
+
+  }catch(e){
+    closeCamera();
+    alert('Camera error: '+e.message+'\nPlease type the value manually.');
+  }
 }
 
 function fillScan(value){
@@ -1306,25 +1417,30 @@ function renderReview(){
 // ════════════════════════════════════════════════════
 // PHOTO LABEL OVERLAY (white strip at top)
 // ════════════════════════════════════════════════════
-async function addPhotoLabel(dataUrl, labelText){
+function addPhotoLabel(dataUrl, labelText){
+  if(!dataUrl) return Promise.resolve(null);
   return new Promise(resolve=>{
     const img=new Image();
+    const done=(result)=>{ clearTimeout(timer); resolve(result); };
+    const timer=setTimeout(()=>done(dataUrl), 8000); // safety: return original on timeout
+    img.onerror=()=>done(dataUrl); // if image fails, return original unchanged
     img.onload=()=>{
-      const bh=Math.max(36,Math.round(img.height*.06));
-      const canvas=document.createElement('canvas');
-      canvas.width=img.width; canvas.height=img.height;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0);
-      ctx.fillStyle='rgba(255,255,255,0.93)';
-      ctx.fillRect(0,0,img.width,bh);
-      ctx.fillStyle='#2C3E50';
-      const fs=Math.round(bh*.52); ctx.font=`bold ${fs}px Arial`;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(labelText,img.width/2,bh/2);
-      // thin border line
-      ctx.strokeStyle='#CBD5E0'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(0,bh); ctx.lineTo(img.width,bh); ctx.stroke();
-      resolve(canvas.toDataURL('image/jpeg',.92));
+      try{
+        const bh=Math.max(36,Math.round(img.height*.06));
+        const canvas=document.createElement('canvas');
+        canvas.width=img.width; canvas.height=img.height;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0);
+        ctx.fillStyle='rgba(255,255,255,0.93)';
+        ctx.fillRect(0,0,img.width,bh);
+        ctx.fillStyle='#2C3E50';
+        const fs=Math.round(bh*.52); ctx.font=`bold ${fs}px Arial`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(labelText,img.width/2,bh/2);
+        ctx.strokeStyle='#CBD5E0'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(0,bh); ctx.lineTo(img.width,bh); ctx.stroke();
+        done(canvas.toDataURL('image/jpeg',.92));
+      }catch(e){ done(dataUrl); }
     };
     img.src=dataUrl;
   });
@@ -1333,11 +1449,14 @@ async function addPhotoLabel(dataUrl, labelText){
 // ════════════════════════════════════════════════════
 // SITE MAP EXPORT WITH LEGEND
 // ════════════════════════════════════════════════════
-async function exportSiteMap(){
-  const img=document.getElementById('mapImg');
-  if(!img.src||img.style.display==='none') return null;
+function exportSiteMap(){
+  // Use state.siteMapData directly — don't rely on DOM display style
+  if(!state.siteMapData) return Promise.resolve(null);
   return new Promise(resolve=>{
-    const src=new Image(); src.crossOrigin='anonymous';
+    const src=new Image();
+    const done=(result)=>{ clearTimeout(timer); resolve(result); };
+    const timer=setTimeout(()=>done(state.siteMapData), 10000); // fallback on timeout
+    src.onerror=()=>done(state.siteMapData);
     src.onload=()=>{
       const W=src.naturalWidth||800, H=src.naturalHeight||600;
       const canvas=document.createElement('canvas');
@@ -1388,10 +1507,9 @@ async function exportSiteMap(){
         ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(pin.pinNum,px,py-r*1.6);
       });
-      resolve(canvas.toDataURL('image/jpeg',.92));
+      done(canvas.toDataURL('image/jpeg',.92));
     };
-    src.onerror=()=>resolve(state.siteMapData||null);
-    src.src=state.siteMapData||img.src;
+    src.src=state.siteMapData; // always use state — we already guarded above
   });
 }
 
@@ -1432,6 +1550,7 @@ function buildExcel(){
 // PDF
 // ════════════════════════════════════════════════════
 async function buildPDF(labeledPhotos){
+  if(!window.jspdf?.jsPDF) throw new Error('jsPDF library failed to load. Check internet connection and reload.');
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
   const d=state.job, W=doc.internal.pageSize.getWidth(), marg=14;
@@ -1555,13 +1674,15 @@ ${idfSections}
 // ════════════════════════════════════════════════════
 async function exportAll(){
   const btn=document.getElementById('exportBtn');
-  btn.textContent='⏳ Building…'; btn.disabled=true;
+  const setStatus=t=>{ btn.textContent='⏳ '+t; };
+  btn.disabled=true; setStatus('Preparing…');
   try{
     const d=(state.job.date||new Date().toISOString().slice(0,10)).replace(/-/g,'');
     const sName=(state.job.site||'Site').replace(/[^a-z0-9]/gi,'_');
     const zip=new JSZip(), root=zip.folder(`Paltech_${sName}_${d}`);
 
     // Label photos for all IDFs
+    setStatus('Adding photo labels…');
     const labeledPhotos={};
     for(const idf of state.idfs){
       labeledPhotos[idf.id]={};
@@ -1576,36 +1697,44 @@ async function exportAll(){
     }
 
     // Site map
+    setStatus('Rendering site map…');
     const mapImg=await exportSiteMap();
 
     // 1 — Excel
+    setStatus('Building Excel…');
     const wb=buildExcel();
     root.folder('Excel').file(`PortMapping_${sName}_${d}.xlsx`,XLSX.write(wb,{bookType:'xlsx',type:'array'}));
 
     // 2 — PDF
+    setStatus('Building PDF…');
     const pdfBuf=await buildPDF(labeledPhotos);
     root.folder('PDF').file(`PortMapping_${sName}_${d}.pdf`,pdfBuf);
 
     // 3 — Photos
+    setStatus('Packaging photos…');
     const photosDir=root.folder('Photos');
     for(const idf of state.idfs){
-      if(labeledPhotos[idf.id].overview) photosDir.file(idf.photos.overview.filename,labeledPhotos[idf.id].overview.split(',')[1],{base64:true});
-      else if(idf.photos.overview) photosDir.file(idf.photos.overview.filename,idf.photos.overview.data.split(',')[1],{base64:true});
+      const lp=labeledPhotos[idf.id]||{};
+      if(lp.overview&&lp.overview.includes(',')) photosDir.file(idf.photos.overview.filename,lp.overview.split(',')[1],{base64:true});
+      else if(idf.photos.overview?.data) photosDir.file(idf.photos.overview.filename,idf.photos.overview.data.split(',')[1],{base64:true});
       if(labeledPhotos[idf.id].patchpanel) photosDir.file(idf.photos.patchpanel.filename,labeledPhotos[idf.id].patchpanel.split(',')[1],{base64:true});
-      else if(idf.photos.patchpanel) photosDir.file(idf.photos.patchpanel.filename,idf.photos.patchpanel.data.split(',')[1],{base64:true});
-      idf.photos.extras.forEach(p=>photosDir.file(p.filename,p.data.split(',')[1],{base64:true}));
+      if(lp.patchpanel&&lp.patchpanel.includes(',')) photosDir.file(idf.photos.patchpanel.filename,lp.patchpanel.split(',')[1],{base64:true});
+      else if(idf.photos.patchpanel?.data) photosDir.file(idf.photos.patchpanel.filename,idf.photos.patchpanel.data.split(',')[1],{base64:true});
+      idf.photos.extras.forEach(p=>{ if(p?.data?.includes(',')) photosDir.file(p.filename,p.data.split(',')[1],{base64:true}); });
     }
 
     // 4 — Site map
-    if(mapImg) root.folder('SiteMap').file(`SiteMap_${sName}.jpg`,mapImg.split(',')[1],{base64:true});
+    if(mapImg&&mapImg.includes(',')) root.folder('SiteMap').file(`SiteMap_${sName}.jpg`,mapImg.split(',')[1],{base64:true});
 
     // 5 — HTML report
+    setStatus('Building HTML report…');
     const htmlReport=buildHTML(mapImg,labeledPhotos);
     root.file(`Report_${sName}.html`,htmlReport);
 
     // 6 — Summary
     root.file('Job_Summary.txt',buildSummary());
 
+    setStatus('Compressing ZIP…');
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
@@ -1665,6 +1794,59 @@ async function saveCloud(silent=false){
     if(!silent) alert('✅ Saved to cloud! Report ID: '+ref.id);
   }catch(e){ if(!silent) alert('Cloud save failed: '+e.message); console.error(e); }
 }
+
+// ════════════════════════════════════════════════════
+// ADDRESS AUTOCOMPLETE (Nominatim)
+// ════════════════════════════════════════════════════
+(function(){
+  const inp=document.getElementById('siteAddr');
+  const drop=document.getElementById('addrDrop');
+  let ctrl=null, focusIdx=-1, results=[];
+
+  function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+  const search=debounce(async q=>{
+    q=q.trim();
+    if(q.length<4){ drop.style.display='none'; return; }
+    if(ctrl) ctrl.abort();
+    ctrl=new AbortController();
+    try{
+      const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6&countrycodes=us`;
+      const res=await fetch(url,{signal:ctrl.signal,headers:{'Accept-Language':'en'}});
+      results=await res.json();
+      if(!results.length){ drop.style.display='none'; return; }
+      drop.innerHTML=results.map((r,i)=>{
+        const a=r.address||{};
+        const main=[a.house_number,a.road].filter(Boolean).join(' ')||(r.display_name.split(',')[0]);
+        const sub=[a.city||a.town||a.village,a.state,a.postcode].filter(Boolean).join(', ');
+        return `<div class="ac-item" data-i="${i}"><div class="ac-main">${main}</div><div class="ac-sub">${sub||r.display_name.split(',').slice(1,3).join(',')}</div></div>`;
+      }).join('');
+      drop.style.display='block'; focusIdx=-1;
+    }catch(e){ if(e.name!=='AbortError') drop.style.display='none'; }
+  },420);
+
+  function pick(i){
+    const r=results[i]; if(!r) return;
+    const a=r.address||{};
+    const parts=[a.house_number,a.road,a.city||a.town||a.village,a.state,a.postcode].filter(Boolean);
+    inp.value=parts.join(', ')||r.display_name;
+    drop.style.display='none';
+  }
+
+  inp.addEventListener('input',e=>search(e.target.value));
+  inp.addEventListener('blur',()=>setTimeout(()=>drop.style.display='none',200));
+  inp.addEventListener('keydown',e=>{
+    const items=drop.querySelectorAll('.ac-item');
+    if(e.key==='ArrowDown'){ focusIdx=Math.min(focusIdx+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('focused',i===focusIdx)); e.preventDefault(); }
+    else if(e.key==='ArrowUp'){ focusIdx=Math.max(focusIdx-1,0); items.forEach((el,i)=>el.classList.toggle('focused',i===focusIdx)); e.preventDefault(); }
+    else if(e.key==='Enter'&&focusIdx>=0){ pick(focusIdx); e.preventDefault(); }
+    else if(e.key==='Escape') drop.style.display='none';
+  });
+  drop.addEventListener('mousedown',e=>{
+    const item=e.target.closest('.ac-item');
+    if(item){ e.preventDefault(); pick(parseInt(item.dataset.i)); }
+  });
+})();
 
 // ════════════════════════════════════════════════════
 // INIT
