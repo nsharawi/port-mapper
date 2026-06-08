@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PALTECH — User Access Management</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--pr:#005A9C;--ac:#27AE60;--dn:#E74C3C;--pu:#8E44AD;--tx:#2C3E50;--bg:#E9ECEF;--bd:#D1D9E0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx)}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:rgba(0,22,45,.97);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{background:#fff;border-radius:14px;padding:32px 28px;text-align:center;max-width:340px;width:90%}
+.login-box h2{color:var(--pr);margin-bottom:6px;font-size:1.2rem}
+.login-box p{font-size:.83rem;color:#596A7A;margin-bottom:20px}
+.btn-google{display:inline-flex;align-items:center;gap:9px;padding:10px 22px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-google:hover{background:#F8FAFC}
+.access-err{color:var(--dn);font-size:.8rem;margin-top:10px;display:none}
+
+/* TOP BAR */
+.top-bar{background:var(--pu);color:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:300;gap:10px;flex-wrap:wrap}
+.top-bar h1{font-size:.92rem;font-weight:700}
+.top-nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav-link{padding:5px 12px;border-radius:6px;background:rgba(255,255,255,.15);color:#fff;font-size:.75rem;font-weight:600;text-decoration:none;cursor:pointer;border:none;transition:background .15s}
+.nav-link:hover{background:rgba(255,255,255,.28)}
+.nav-link.here{background:rgba(255,255,255,.3);border-bottom:2px solid #fff}
+.user-info{display:flex;align-items:center;gap:8px;font-size:.78rem}
+
+/* LAYOUT */
+.layout{display:grid;gap:0}
+@media(min-width:900px){.layout{grid-template-columns:280px 1fr}}
+.sidebar{background:#fff;border-right:1px solid var(--bd);min-height:calc(100vh - 44px);padding:16px}
+.main{padding:18px;min-height:calc(100vh - 44px)}
+
+/* SIDEBAR CARDS */
+.side-card{background:#F8FAFC;border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.side-card h3{font-size:.82rem;font-weight:700;color:var(--pu);margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.side-label{font-size:.68rem;font-weight:700;color:#7f8c8d;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.field-group{margin-bottom:10px}
+.inp{width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;font-size:12px;font-family:inherit}
+.inp:focus{border-color:var(--pu);outline:none;background:#fff}
+.stats-row{display:flex;justify-content:space-between;padding:3px 0;font-size:.78rem;color:#596A7A;border-bottom:1px solid #f0f0f0}
+.stats-row:last-child{border:none}
+.stats-row strong{color:var(--pu)}
+
+/* BUTTONS */
+.btn{padding:7px 14px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-family:inherit}
+.btn-pu{background:var(--pu);color:#fff} .btn-ac{background:var(--ac);color:#fff}
+.btn-dn{background:var(--dn);color:#fff} .btn-gh{background:none;color:#596A7A;border:1px solid var(--bd)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-full{width:100%;justify-content:center}
+
+/* USER TABLE */
+.table-wrap{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;margin-bottom:16px}
+.table-header{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.table-header h2{font-size:.93rem;color:var(--pu)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#6C3483;color:#fff;padding:8px 12px;text-align:left;font-size:.73rem;font-weight:600;cursor:pointer;user-select:none}
+th:hover{background:#7D3C98}
+td{padding:9px 12px;border-bottom:1px solid #F0F4F8;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+
+/* USER ROW EXPAND */
+.user-row{cursor:pointer;transition:background .1s}
+.user-row:hover td{background:#F8F0FF}
+.user-row.expanded td{background:#F0E8FF;font-weight:600}
+.expand-panel{display:none;background:#FAFAFA;border-top:2px solid #E0C8FF}
+.expand-panel.open{display:table-row-group}
+.expand-cell{padding:12px 16px !important;font-weight:normal !important}
+.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:8px}
+.report-card{background:#fff;border:1px solid var(--bd);border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.report-card h4{font-size:.8rem;color:var(--pr);margin-bottom:2px}
+.report-card span{font-size:.7rem;color:#7f8c8d}
+.badge{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700}
+.badge-ok{background:#D0F0E0;color:#1A7A40}
+.badge-warn{background:#FFF3D0;color:#A07000}
+.email-chip{display:inline-block;background:#EDE0FF;color:var(--pu);border-radius:10px;padding:2px 9px;font-size:.72rem;font-weight:600}
+
+/* MISC */
+.spinner{display:block;width:24px;height:24px;border:3px solid #ddd;border-top-color:var(--pu);border-radius:50%;animation:spin .7s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:48px;color:#7f8c8d;font-size:.88rem}
+.tag{display:inline-block;padding:1px 7px;border-radius:8px;font-size:.68rem;font-weight:700;margin:1px;background:#EBF3FF;color:var(--pr)}
+.search-wrap{position:relative}
+.search-wrap input{width:100%;padding:7px 9px 7px 28px;border:1px solid var(--bd);border-radius:7px;font-size:12px;font-family:inherit}
+.search-wrap::before{content:'🔍';position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px;pointer-events:none}
+.search-wrap input:focus{border-color:var(--pu);outline:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2C3E50;color:#fff;padding:10px 20px;border-radius:8px;font-size:.82rem;z-index:1000;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div style="font-size:2.2rem">👥</div>
+    <h2>User Access Management</h2>
+    <p>Admin sign-in required to manage user permissions.</p>
+    <button class="btn-google" onclick="adminSignIn()">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="access-err" id="accessErr">⛔ Access denied. Your account is not an admin.</div>
+  </div>
+</div>
+
+<div class="top-bar">
+  <h1>👥 User Access Management</h1>
+  <div class="top-nav">
+    <a class="nav-link" href="admin.html">📂 Reports</a>
+    <a class="nav-link here" href="users.html">👥 Users</a>
+    <a class="nav-link" href="wizard.html">🔧 Wizard</a>
+    <a class="nav-link" href="client.html">📋 Client View</a>
+  </div>
+  <div class="user-info">
+    <span id="adminEmail" style="opacity:.8"></span>
+    <button class="btn btn-gh btn-sm" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="adminSignOut()">Sign Out</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Grant Site Access -->
+    <div class="side-card">
+      <h3>🏢 Grant Site Access</h3>
+      <div class="field-group">
+        <div class="side-label">Email Address</div>
+        <input class="inp" type="email" id="grantEmail" placeholder="client@example.com">
+      </div>
+      <div class="field-group">
+        <div class="side-label">Site Name</div>
+        <select class="inp" id="grantSite">
+          <option value="">— Select a site —</option>
+        </select>
+      </div>
+      <div id="grantSiteCount" style="font-size:.72rem;color:#596A7A;margin-bottom:8px"></div>
+      <button class="btn btn-ac btn-full btn-sm" onclick="grantSiteAccess()">✓ Grant Access to All Reports</button>
+    </div>
+
+    <!-- Grant to Single Report -->
+    <div class="side-card">
+      <h3>📄 Grant Report Access</h3>
+      <div class="field-group">
+        <div class="side-label">Email Address</div>
+        <input class="inp" type="email" id="grantSingleEmail" placeholder="client@example.com">
+      </div>
+      <div class="field-group">
+        <div class="side-label">Report (Site — Ticket)</div>
+        <select class="inp" id="grantSingleReport">
+          <option value="">— Select a report —</option>
+        </select>
+      </div>
+      <button class="btn btn-pu btn-full btn-sm" onclick="grantSingleAccess()">+ Grant Access</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="side-card">
+      <h3>📊 Stats</h3>
+      <div class="stats-row">Users with access <strong id="statUsers">0</strong></div>
+      <div class="stats-row">Total reports <strong id="statReports">0</strong></div>
+      <div class="stats-row">Sites <strong id="statSites">0</strong></div>
+    </div>
+
+    <button class="btn btn-gh btn-full btn-sm" onclick="loadAll()">↻ Refresh Data</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- Filter -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <div class="search-wrap" style="flex:1;min-width:180px">
+        <input id="userSearch" placeholder="Filter by email or site…" oninput="renderUsers()">
+      </div>
+      <select class="inp" id="siteFilter" style="width:auto;min-width:160px" onchange="renderUsers()">
+        <option value="">All sites</option>
+      </select>
+      <button class="btn btn-gh btn-sm" onclick="renderUsers()">↻</button>
+    </div>
+
+    <div class="table-wrap" id="userTableWrap">
+      <div class="table-header">
+        <h2>Users with Report Access</h2>
+        <button class="btn btn-gh btn-sm" onclick="exportAccessCSV()">📥 Export CSV</button>
+      </div>
+      <div id="userTableArea"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC5hauabRSRNg-qsSU_Le7Y541kGiKDv5Q",
+  authDomain: "port-mapper-609b8.firebaseapp.com",
+  projectId: "port-mapper-609b8",
+  storageBucket: "port-mapper-609b8.firebasestorage.app",
+  messagingSenderId: "30294256994",
+  appId: "1:30294256994:web:a50b5f971d1a1a79c7903b"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth=firebase.auth(), db=firebase.firestore();
+
+let allReports=[], userMap={}, siteNames=[];
+
+// ════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════
+auth.onAuthStateChanged(async user=>{
+  if(!user){ document.getElementById('loginScreen').style.display='flex'; return; }
+  const adminDoc=await db.collection('admins').doc(user.uid).get();
+  if(!adminDoc.exists){
+    document.getElementById('accessErr').style.display='block';
+    auth.signOut(); return;
+  }
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminEmail').textContent=user.displayName||user.email;
+  loadAll();
+});
+function adminSignIn(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+function adminSignOut(){ if(confirm('Sign out?')) auth.signOut().then(()=>location.reload()); }
+
+// ════════════════════════════════════════════════════
+// LOAD ALL REPORTS
+// ════════════════════════════════════════════════════
+async function loadAll(){
+  document.getElementById('userTableArea').innerHTML='<div class="spinner"></div>';
+  try{
+    const snap=await db.collection('reports').orderBy('savedAt','desc').limit(1000).get();
+    allReports=snap.docs.map(d=>({id:d.id,...d.data(),
+      savedAtDate:d.data().savedAt?.toDate?.()||new Date(0)}));
+    buildUserMap();
+    populateSiteDropdowns();
+    updateStats();
+    renderUsers();
+  }catch(e){
+    document.getElementById('userTableArea').innerHTML=
+      `<div class="empty">Error loading reports: ${e.message}</div>`;
+  }
+}
+
+function buildUserMap(){
+  userMap={};
+  allReports.forEach(r=>{
+    (r.allowedEmails||[]).forEach(email=>{
+      if(!email) return;
+      const key=email.toLowerCase();
+      if(!userMap[key]) userMap[key]={email:key,reports:[],sites:new Set()};
+      userMap[key].reports.push(r);
+      if(r.site) userMap[key].sites.add(r.site);
+    });
+  });
+}
+
+function populateSiteDropdowns(){
+  siteNames=[...new Set(allReports.map(r=>r.site||'').filter(Boolean))].sort();
+  const opts=siteNames.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  document.getElementById('grantSite').innerHTML='<option value="">— Select a site —</option>'+opts;
+  document.getElementById('siteFilter').innerHTML='<option value="">All sites</option>'+opts;
+  // Report dropdown
+  const repOpts=allReports.map(r=>{
+    const label=`${r.site||'—'} — ${r.ticket||'No ticket'} (${r.date||'—'})`;
+    return `<option value="${r.id}">${esc(label)}</option>`;
+  }).join('');
+  document.getElementById('grantSingleReport').innerHTML='<option value="">— Select a report —</option>'+repOpts;
+  // Site count hint
+  document.getElementById('grantSite').addEventListener('change',updateSiteGrantCount);
+}
+
+function updateSiteGrantCount(){
+  const site=document.getElementById('grantSite').value;
+  const count=site?allReports.filter(r=>(r.site||'')==site).length:0;
+  document.getElementById('grantSiteCount').textContent=
+    site?`${count} report${count!==1?'s':''} for this site`:'';
+}
+
+function updateStats(){
+  const userCount=Object.keys(userMap).length;
+  document.getElementById('statUsers').textContent=userCount;
+  document.getElementById('statReports').textContent=allReports.length;
+  document.getElementById('statSites').textContent=siteNames.length;
+}
+
+// ════════════════════════════════════════════════════
+// RENDER USERS TABLE
+// ════════════════════════════════════════════════════
+function renderUsers(){
+  const q=(document.getElementById('userSearch').value||'').toLowerCase();
+  const sf=(document.getElementById('siteFilter').value||'');
+  let users=Object.values(userMap).filter(u=>{
+    const matchQ=!q||u.email.includes(q)||[...u.sites].some(s=>s.toLowerCase().includes(q));
+    const matchSite=!sf||u.sites.has(sf);
+    return matchQ&&matchSite;
+  }).sort((a,b)=>a.email.localeCompare(b.email));
+
+  if(!users.length){
+    document.getElementById('userTableArea').innerHTML=
+      '<div class="empty">No users with report access found.</div>';
+    return;
+  }
+
+  const rows=users.map((u,i)=>{
+    const siteTags=[...u.sites].map(s=>`<span class="tag">${esc(s)}</span>`).join(' ');
+    const reportCount=u.reports.length;
+    return `
+      <tbody>
+        <tr class="user-row" onclick="toggleUser('u${i}',this)">
+          <td><span class="email-chip">${esc(u.email)}</span></td>
+          <td>${siteTags||'<span style="color:#aaa">—</span>'}</td>
+          <td><strong>${reportCount}</strong></td>
+          <td>
+            <button class="btn btn-dn btn-sm" onclick="event.stopPropagation();revokeAllAccess('${esc(u.email)}')">✕ Revoke All</button>
+          </td>
+        </tr>
+        <tr class="expand-panel" id="u${i}">
+          <td class="expand-cell" colspan="4">
+            <div style="font-size:.78rem;font-weight:700;color:var(--pu);margin-bottom:8px">
+              Reports accessible to ${esc(u.email)}
+            </div>
+            <div class="report-grid">
+              ${u.reports.map(r=>{
+                const allDone=(r.idfs||[]).every(x=>x.complete);
+                return `<div class="report-card">
+                  <div>
+                    <h4>${esc(r.site||'—')}</h4>
+                    <span>Ticket: ${esc(r.ticket||'—')} · ${r.date||'—'}</span><br>
+                    <span class="badge ${allDone?'badge-ok':'badge-warn'}" style="margin-top:3px">${allDone?'Complete':'In Progress'}</span>
+                  </div>
+                  <button class="btn btn-dn btn-sm" style="flex-shrink:0" onclick="revokeOneAccess('${esc(u.email)}','${r.id}')">✕</button>
+                </div>`;
+              }).join('')}
+            </div>
+          </td>
+        </tr>
+      </tbody>`;
+  }).join('');
+
+  document.getElementById('userTableArea').innerHTML=`
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th style="cursor:default">Email</th>
+          <th style="cursor:default">Sites</th>
+          <th style="cursor:default;width:90px">Reports</th>
+          <th style="cursor:default;width:120px">Actions</th>
+        </tr></thead>
+        ${rows}
+      </table>
+    </div>`;
+}
+
+function toggleUser(id,row){
+  const panel=document.getElementById(id);
+  if(!panel) return;
+  const open=panel.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.expand-panel.open').forEach(p=>{
+    p.classList.remove('open');
+    p.previousElementSibling?.classList.remove('expanded');
+  });
+  if(!open){ panel.classList.add('open'); row.classList.add('expanded'); }
+}
+
+// ════════════════════════════════════════════════════
+// GRANT SITE ACCESS (bulk)
+// ════════════════════════════════════════════════════
+async function grantSiteAccess(){
+  const email=document.getElementById('grantEmail').value.trim().toLowerCase();
+  const site=document.getElementById('grantSite').value;
+  if(!email||!email.includes('@')){ alert('Enter a valid email address.'); return; }
+  if(!site){ alert('Select a site from the dropdown.'); return; }
+  const siteReports=allReports.filter(r=>(r.site||'')==site);
+  if(!siteReports.length){ alert('No reports found for this site.'); return; }
+  if(!confirm(`Grant "${email}" access to all ${siteReports.length} report(s) for "${site}"?`)) return;
+  const btn=document.querySelector('[onclick="grantSiteAccess()"]');
+  const orig=btn.textContent; btn.textContent='⏳…'; btn.disabled=true;
+  try{
+    const batch=db.batch();
+    siteReports.forEach(r=>{
+      batch.update(db.collection('reports').doc(r.id),{
+        allowedEmails:firebase.firestore.FieldValue.arrayUnion(email)
+      });
+    });
+    await batch.commit();
+    // Update local cache
+    siteReports.forEach(r=>{
+      r.allowedEmails=[...(r.allowedEmails||[]).filter(e=>e!==email),email];
+    });
+    document.getElementById('grantEmail').value='';
+    document.getElementById('grantSite').value='';
+    document.getElementById('grantSiteCount').textContent='';
+    buildUserMap(); updateStats(); renderUsers();
+    toast(`✅ Granted "${email}" access to ${siteReports.length} report(s) for "${site}"`);
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ btn.textContent=orig; btn.disabled=false; }
+}
+
+// ════════════════════════════════════════════════════
+// GRANT SINGLE REPORT ACCESS
+// ════════════════════════════════════════════════════
+async function grantSingleAccess(){
+  const email=document.getElementById('grantSingleEmail').value.trim().toLowerCase();
+  const reportId=document.getElementById('grantSingleReport').value;
+  if(!email||!email.includes('@')){ alert('Enter a valid email address.'); return; }
+  if(!reportId){ alert('Select a report from the dropdown.'); return; }
+  const btn=document.querySelector('[onclick="grantSingleAccess()"]');
+  const orig=btn.textContent; btn.textContent='⏳…'; btn.disabled=true;
+  try{
+    await db.collection('reports').doc(reportId).update({
+      allowedEmails:firebase.firestore.FieldValue.arrayUnion(email)
+    });
+    const r=allReports.find(x=>x.id===reportId);
+    if(r) r.allowedEmails=[...(r.allowedEmails||[]).filter(e=>e!==email),email];
+    document.getElementById('grantSingleEmail').value='';
+    document.getElementById('grantSingleReport').value='';
+    buildUserMap(); updateStats(); renderUsers();
+    toast(`✅ Granted access to "${email}"`);
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ btn.textContent=orig; btn.disabled=false; }
+}
+
+// ════════════════════════════════════════════════════
+// REVOKE ACCESS
+// ════════════════════════════════════════════════════
+async function revokeOneAccess(email,reportId){
+  const r=allReports.find(x=>x.id===reportId);
+  if(!confirm(`Remove access for "${email}" from report "${r?.site||reportId}"?`)) return;
+  try{
+    await db.collection('reports').doc(reportId).update({
+      allowedEmails:firebase.firestore.FieldValue.arrayRemove(email)
+    });
+    if(r) r.allowedEmails=(r.allowedEmails||[]).filter(e=>e!==email);
+    buildUserMap(); updateStats(); renderUsers();
+    toast(`Removed access for "${email}" from "${r?.site||reportId}"`);
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+async function revokeAllAccess(email){
+  const u=userMap[email.toLowerCase()];
+  if(!u){ alert('User not found.'); return; }
+  if(!confirm(`Remove ALL access for "${email}"?\nThis affects ${u.reports.length} report(s).`)) return;
+  try{
+    const batch=db.batch();
+    u.reports.forEach(r=>{
+      batch.update(db.collection('reports').doc(r.id),{
+        allowedEmails:firebase.firestore.FieldValue.arrayRemove(email)
+      });
+    });
+    await batch.commit();
+    u.reports.forEach(r=>{
+      r.allowedEmails=(r.allowedEmails||[]).filter(e=>e!==email);
+    });
+    buildUserMap(); updateStats(); renderUsers();
+    toast(`✅ Revoked all access for "${email}"`);
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+// ════════════════════════════════════════════════════
+// EXPORT ACCESS AS CSV
+// ════════════════════════════════════════════════════
+function exportAccessCSV(){
+  const headers=['Email','Site','Report ID','Ticket','Date','Status'];
+  const rows=[];
+  Object.values(userMap).forEach(u=>{
+    u.reports.forEach(r=>{
+      const allDone=(r.idfs||[]).every(i=>i.complete);
+      rows.push([u.email,r.site||'',r.id,r.ticket||'',r.date||'',allDone?'Complete':'Incomplete']
+        .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+    });
+  });
+  if(!rows.length){ alert('No access records to export.'); return; }
+  const csv=[headers.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='PALTECH_UserAccess_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+</script>
+</body>
+</html>
