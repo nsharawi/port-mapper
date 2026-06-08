@@ -124,6 +124,18 @@ textarea.inp{resize:vertical}
 .badge-dn{background:#FFD8D8;color:#A00000}
 .badge-auth{background:#D4EAF7;color:#005A9C}
 .badge-inactive{background:#EEEEEE;color:#666}
+/* ROLE BADGES */
+.role-admin{background:#FFE0E0;color:#A00000;border:1px solid #F5C6CB}
+.role-power{background:#FFF3D0;color:#A07000;border:1px solid #FFE082}
+.role-client{background:#D0F0E0;color:#1A7A40;border:1px solid #C3E6CB}
+/* ROLE FILTER TABS */
+.role-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.role-tab{padding:5px 12px;border-radius:14px;font-size:.75rem;font-weight:700;cursor:pointer;border:2px solid transparent;background:#F0F0F0;color:#596A7A;transition:all .15s}
+.role-tab:hover{border-color:#aaa}
+.role-tab.active{background:var(--pu);color:#fff;border-color:var(--pu)}
+.role-tab.t-admin.active{background:#C0392B;border-color:#C0392B}
+.role-tab.t-power.active{background:#E67E22;border-color:#E67E22}
+.role-tab.t-client.active{background:#27AE60;border-color:#27AE60}
 
 /* PASSWORD FIELD */
 .pass-wrap{position:relative}
@@ -275,10 +287,13 @@ textarea.inp{resize:vertical}
     <!-- ── STATS ── -->
     <div class="side-card">
       <h3>📊 Stats</h3>
-      <div class="stats-row">Auth Users (with password) <strong id="statAuthUsers">0</strong></div>
-      <div class="stats-row">Active accounts <strong id="statActiveUsers">0</strong></div>
-      <div class="stats-row">Total users w/ access <strong id="statUsers">0</strong></div>
-      <div class="stats-row">Total reports <strong id="statReports">0</strong></div>
+      <div class="stats-row">🔴 Admins <strong id="statAdmins">0</strong></div>
+      <div class="stats-row">🟠 Power Users <strong id="statPower">0</strong></div>
+      <div class="stats-row">🟢 Clients <strong id="statClients">0</strong></div>
+      <div class="stats-row" style="border-top:1px solid #e8e8e8;margin-top:4px;padding-top:6px">Active accounts <strong id="statActiveUsers">0</strong></div>
+      <div class="stats-row">Inactive accounts <strong id="statInactive">0</strong></div>
+      <div class="stats-row">No account yet <strong id="statNoAccount">0</strong></div>
+      <div class="stats-row" style="border-top:1px solid #e8e8e8;margin-top:4px;padding-top:6px">Total reports <strong id="statReports">0</strong></div>
       <div class="stats-row">Sites <strong id="statSites">0</strong></div>
     </div>
 
@@ -287,26 +302,30 @@ textarea.inp{resize:vertical}
 
   <!-- MAIN -->
   <div class="main">
-    <!-- Filter bar -->
+    <!-- Role quick-filter tabs -->
+    <div class="role-tabs">
+      <button class="role-tab active" data-role="" onclick="setRoleTab(this,'')">👥 All</button>
+      <button class="role-tab t-admin" data-role="admin" onclick="setRoleTab(this,'admin')">🔴 Admins</button>
+      <button class="role-tab t-power" data-role="power_user" onclick="setRoleTab(this,'power_user')">🟠 Power Users</button>
+      <button class="role-tab t-client" data-role="client" onclick="setRoleTab(this,'client')">🟢 Clients</button>
+      <button class="role-tab" data-role="noaccount" onclick="setRoleTab(this,'noaccount')">⚠ No Account</button>
+      <button class="role-tab" data-role="inactive" onclick="setRoleTab(this,'inactive')">⏸ Inactive</button>
+    </div>
+    <!-- Search + site filter row -->
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <div class="search-wrap" style="flex:1;min-width:180px">
-        <input id="userSearch" placeholder="Search by name, email, or site…" oninput="renderUsers()">
+        <input id="userSearch" placeholder="Search by name, email, company, or site…" oninput="renderUsers()">
       </div>
       <select class="inp" id="siteFilter" style="width:auto;min-width:150px" onchange="renderUsers()">
         <option value="">All sites</option>
       </select>
-      <select class="inp" id="filterType" style="width:auto;min-width:140px" onchange="renderUsers()">
-        <option value="">All users</option>
-        <option value="auth">With account (🔐)</option>
-        <option value="noaccount">No account yet</option>
-        <option value="inactive">Inactive accounts</option>
-      </select>
-      <button class="btn btn-gh btn-sm" onclick="renderUsers()">↻</button>
+      <!-- hidden role filter driven by tabs -->
+      <input type="hidden" id="filterRole" value="">
     </div>
 
     <div class="list-wrap" id="userTableWrap">
       <div class="list-header">
-        <h2>All Users</h2>
+        <h2 id="listTitle">All Users</h2>
         <button class="btn btn-gh btn-sm" onclick="exportAccessCSV()">📥 Export CSV</button>
       </div>
       <div id="userTableArea"><div class="spinner"></div></div>
@@ -617,35 +636,65 @@ function updateSiteGrantCount() {
 // STATS
 // ════════════════════════════════════════════════════
 function updateStats() {
-  const activeAuth = allAuthUsers.filter(u => u.active !== false).length;
-  document.getElementById('statAuthUsers').textContent   = allAuthUsers.length;
-  document.getElementById('statActiveUsers').textContent = activeAuth;
-  document.getElementById('statUsers').textContent       = Object.keys(userMap).length;
+  const active   = allAuthUsers.filter(u => u.active !== false).length;
+  const inactive = allAuthUsers.filter(u => u.active === false).length;
+  const admins   = allAuthUsers.filter(u => u.role === 'admin' || u.role === 'superadmin').length;
+  const power    = allAuthUsers.filter(u => u.role === 'power_user').length;
+  const clients  = allAuthUsers.filter(u => !u.role || u.role === 'client').length;
+  const noAcct   = Object.values(userMap).filter(u => !emailToAuthUser[u.email]).length;
+  document.getElementById('statAdmins').textContent      = admins;
+  document.getElementById('statPower').textContent       = power;
+  document.getElementById('statClients').textContent     = clients;
+  document.getElementById('statActiveUsers').textContent = active;
+  document.getElementById('statInactive').textContent    = inactive;
+  document.getElementById('statNoAccount').textContent   = noAcct;
   document.getElementById('statReports').textContent     = allReports.length;
   document.getElementById('statSites').textContent       = siteNames.length;
+}
+
+// ════════════════════════════════════════════════════
+// ROLE TABS
+// ════════════════════════════════════════════════════
+function setRoleTab(btn, role) {
+  document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('filterRole').value = role;
+  const titles = {
+    '': 'All Users',
+    'admin': '🔴 Admins',
+    'power_user': '🟠 Power Users',
+    'client': '🟢 Clients',
+    'noaccount': '⚠ No Account',
+    'inactive': '⏸ Inactive Accounts'
+  };
+  document.getElementById('listTitle').textContent = titles[role] || 'All Users';
+  renderUsers();
 }
 
 // ════════════════════════════════════════════════════
 // RENDER USER LIST
 // ════════════════════════════════════════════════════
 function renderUsers() {
-  const q  = (document.getElementById('userSearch').value || '').toLowerCase();
-  const sf = document.getElementById('siteFilter').value || '';
-  const ft = document.getElementById('filterType').value || '';
+  const q   = (document.getElementById('userSearch').value || '').toLowerCase();
+  const sf  = document.getElementById('siteFilter').value || '';
+  const fr  = document.getElementById('filterRole').value || '';
 
   let users = Object.values(userMap).filter(u => {
-    const au  = emailToAuthUser[u.email];
+    const au   = emailToAuthUser[u.email];
+    const role = au?.role || 'client';
     const matchQ = !q ||
       u.email.includes(q) ||
       [...u.sites].some(s => s.toLowerCase().includes(q)) ||
       (au?.displayName || '').toLowerCase().includes(q) ||
       (au?.company     || '').toLowerCase().includes(q);
     const matchSite = !sf || u.sites.has(sf);
-    let matchFilter = true;
-    if      (ft === 'auth')      matchFilter = !!au && au.active !== false;
-    else if (ft === 'noaccount') matchFilter = !au;
-    else if (ft === 'inactive')  matchFilter = !!au && au.active === false;
-    return matchQ && matchSite && matchFilter;
+    let matchRole = true;
+    if      (fr === 'admin')      matchRole = !!au && (role === 'admin' || role === 'superadmin');
+    else if (fr === 'power_user') matchRole = !!au && role === 'power_user';
+    else if (fr === 'client')     matchRole = !!au && (role === 'client' || !au.role);
+    else if (fr === 'noaccount')  matchRole = !au;
+    else if (fr === 'inactive')   matchRole = !!au && au.active === false;
+    return matchQ && matchSite && matchRole;
   }).sort((a, b) => {
     // Auth users first; within same group sort by display name / email
     const aA = !!emailToAuthUser[a.email];
@@ -671,6 +720,15 @@ function renderUsers() {
 
     // Avatar colour: green = active auth, grey = inactive auth, purple = no auth
     const avClass = !au ? 'av-plain' : (isActive ? 'av-auth' : 'av-inactive');
+
+    // Role badge (visible in collapsed row)
+    const roleMap = {
+      admin:      `<span class="badge role-admin">🔴 Admin</span>`,
+      superadmin: `<span class="badge role-admin">🔴 Super Admin</span>`,
+      power_user: `<span class="badge role-power">🟠 Power User</span>`,
+      client:     `<span class="badge role-client">🟢 Client</span>`
+    };
+    const roleBadge = au ? (roleMap[au.role || 'client'] || roleMap.client) : '';
 
     // Status badge
     let statusBadge;
@@ -725,7 +783,8 @@ function renderUsers() {
           <button class="btn btn-dn btn-sm" onclick="deleteUserAccount('${uid}','${esc(u.email)}')">🗑 Delete Profile</button>
         </div>
         <div class="profile-meta">
-          Created ${createdDate} · by ${esc(au.createdBy||'—')} · Role: ${esc(au.role||'client')}
+          Created ${createdDate} · by ${esc(au.createdBy||'—')}
+          ${uid === (currentUser&&currentUser.uid) ? ' &nbsp;·&nbsp; <strong style="color:var(--or)">This is you</strong>' : ''}
           &nbsp;·&nbsp; UID: <code style="font-size:.65rem">${uid}</code>
         </div>
       </div>`;
@@ -766,6 +825,7 @@ function renderUsers() {
           <div class="user-sites">${siteTags || '<span style="color:#aaa;font-size:.7rem">No active report access</span>'}</div>
         </div>
         <div class="user-actions">
+          ${roleBadge}
           ${statusBadge}
           <span class="report-count">${reportCount} report${reportCount !== 1 ? 's' : ''}</span>
           <span class="chevron">▼</span>
@@ -807,6 +867,21 @@ async function saveUserEdit(uid, email, idx) {
   const notes   = (document.getElementById('eNotes_'   + idx)?.value || '').trim();
   const role    = document.getElementById('eRole_' + idx)?.value || 'client';
   if (!name) { alert('Display name cannot be empty.'); return; }
+
+  // Prevent accidentally locking yourself out
+  if (uid === currentUser?.uid && role !== 'admin' && role !== 'superadmin') {
+    const ok = confirm(
+      `⚠️ You are about to change YOUR OWN role to "${role}".\n\n` +
+      `This will remove your admin access and you will be signed out.\n\n` +
+      `Are you sure you want to continue?`
+    );
+    if (!ok) {
+      // Reset the selector back to admin
+      const sel = document.getElementById('eRole_' + idx);
+      if (sel) sel.value = 'admin';
+      return;
+    }
+  }
   try {
     await db.collection('users').doc(uid).update({ displayName: name, company, notes, role });
 
@@ -828,8 +903,13 @@ async function saveUserEdit(uid, email, idx) {
 
     const au = allAuthUsers.find(u => u.id === uid);
     if (au) { au.displayName = name; au.company = company; au.notes = notes; au.role = role; }
-    buildUserMap(); renderUsers();
+    buildUserMap(); updateStats(); renderUsers();
     toast('✅ Profile updated');
+
+    // If admin just demoted themselves, sign out so the new role takes effect
+    if (uid === currentUser?.uid && role !== 'admin' && role !== 'superadmin') {
+      setTimeout(() => auth.signOut().then(() => location.href = 'login.html'), 1500);
+    }
   } catch(e) { alert('Error: ' + e.message); }
 }
 
