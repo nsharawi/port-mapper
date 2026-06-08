@@ -39,9 +39,6 @@ th{background:#3D5166;color:#fff;padding:5px 9px;text-align:left;font-size:.72re
 td{padding:5px 9px;border-bottom:1px solid #F0F4F8}
 .photo-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .photo-thumb{width:130px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #eee;cursor:pointer}
-.sitemap-img{width:100%;display:block;border-radius:8px;cursor:pointer;transition:opacity .15s}
-.sitemap-img:hover{opacity:.9}
-.sitemap-note{font-size:.72rem;color:#7f8c8d;margin-top:6px;line-height:1.5}
 .spinner{display:block;width:24px;height:24px;border:3px solid #ddd;border-top-color:var(--pr);border-radius:50%;animation:spin .7s linear infinite;margin:30px auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty{text-align:center;padding:48px;color:#7f8c8d}
@@ -82,7 +79,6 @@ td{padding:5px 9px;border-bottom:1px solid #F0F4F8}
   <div id="detail">
     <button class="back-btn" onclick="showList()">← Back to Reports</button>
     <div class="card" id="detailHeader"></div>
-    <div id="detailSiteMap"></div>
     <div id="detailIdfs"></div>
     <div class="card">
       <div class="ctitle">📷 Photos</div>
@@ -145,13 +141,7 @@ async function showReport(id){
   document.getElementById('detail').style.display='block';
   // Header
   document.getElementById('detailHeader').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <div class="ctitle" style="margin:0">${r.site||'—'}</div>
-      ${r.excelUrl?`<a href="${r.excelUrl}" target="_blank" download
-          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#1D6F42;color:#fff;border-radius:7px;font-size:.78rem;font-weight:700;text-decoration:none">
-          📊 Download Excel Report
-        </a>`:''}
-    </div>
+    <div class="ctitle">${r.site||'—'}</div>
     <div style="display:grid;gap:5px;grid-template-columns:1fr 1fr;font-size:.82rem">
       <div><strong>Ticket:</strong> ${r.ticket||'—'}</div>
       <div><strong>Date:</strong> ${r.date||'—'}</div>
@@ -173,24 +163,12 @@ async function showReport(id){
       </table>
     </div>`;
   }).join('');
-  // Site map — full-width dedicated section
-  document.getElementById('detailSiteMap').innerHTML=r.siteMapUrl?`
-    <div class="card">
-      <div class="ctitle">🗺 Site Map</div>
-      <img class="sitemap-img" src="${r.siteMapUrl}" alt="Site Map with pins"
-           onclick="window.open(this.src,'_blank')" title="Click to open full size">
-      <p class="sitemap-note">
-        📍 Numbered pins show IDF / room locations &nbsp;·&nbsp;
-        Legend is printed along the top of the map &nbsp;·&nbsp;
-        Click the image to open full size
-      </p>
-    </div>` : '';
-
-  // Photos (site map excluded — shown separately above)
+  // Photos
   const photos=[];
+  if(r.siteMapUrl) photos.push({url:r.siteMapUrl,label:'Site Map'});
   (r.idfs||[]).forEach(idf=>{
-    if(idf.photos?.overview?.url)   photos.push({url:idf.photos.overview.url,   label:idf.name+' — Overview'});
-    if(idf.photos?.patchpanel?.url) photos.push({url:idf.photos.patchpanel.url, label:idf.name+' — Patch Panel'});
+    if(idf.photos?.overview?.url)   photos.push({url:idf.photos.overview.url,   label:idf.name+' Overview'});
+    if(idf.photos?.patchpanel?.url) photos.push({url:idf.photos.patchpanel.url, label:idf.name+' Patch Panel'});
   });
   document.getElementById('detailPhotos').innerHTML=photos.map(p=>`
     <div style="text-align:center">
